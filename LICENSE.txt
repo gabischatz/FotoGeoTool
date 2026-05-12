@@ -1,0 +1,19 @@
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+Projekt: Foto Geo-Tool
+Autor: Lutz Müller (gabischatz)
+Webseite: https://gabischatz.de.cool/FotoGeoTool/index.html
+
+Dieses Projekt steht, soweit nicht anders angegeben, unter der Lizenz
+Creative Commons Attribution 4.0 International (CC BY 4.0).
+
+Du darfst das Material teilen und bearbeiten, auch kommerziell, sofern eine angemessene Namensnennung erfolgt.
+
+Lizenztext:
+https://creativecommons.org/licenses/by/4.0/deed.de
+
+Namensnennung:
+Foto Geo-Tool von Lutz Müller (gabischatz), lizenziert unter CC BY 4.0.
+
+Hinweis:
+Externe Bibliotheken, Kartendaten, Panoramax, OpenStreetMap und eingebundene Dienste stehen unter ihren jeweiligen eigenen Lizenzen.

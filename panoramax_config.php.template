@@ -1,0 +1,37 @@
+<?php
+/**
+ * Projekt: Foto Geo-Tool
+ * Datei: https://gabischatz.de.cool/FotoGeoTool/panoramax_config.php.template
+ * Autor: Lutz Müller
+ * Programmiersprache: PHP
+ *
+ * Cronik:
+ *   Version-Datum:
+ *     0.1.8, 7.5.2026, 20:25:00 // UTC+2 Deutschland
+ *      - Vorlage für serverseitigen Panoramax-Token und CLI-Pfad
+ *
+ * Anwendung:
+ *   1. Diese Datei auf dem Server kopieren nach: panoramax_config.php
+ *   2. Neuen Panoramax-Token eintragen.
+ *   3. Pfad zur panoramax_cli prüfen.
+ *
+ * WICHTIG:
+ *   Token niemals in index.html oder script.js speichern.
+ */
+return [
+    // Für panoramax.basi.re ist die API-URL in der Regel diese Adresse:
+    'api_url' => 'https://panoramax.basi.re/api',
+
+    // Hier einen NEU erzeugten Token eintragen.
+    // Der im Chat/Screenshot sichtbare Token sollte gelöscht und ersetzt werden.
+    'token' => 'HIER_NEUEN_TOKEN_EINTRAGEN',
+
+    // Entweder nur der Befehl, wenn er im PATH liegt, oder absoluter Pfad.
+    // Beispiele:
+    // 'panoramax_cli'
+    // '/usr/local/bin/panoramax_cli'
+    'panoramax_cli' => 'panoramax_cli',
+
+    // Optionaler Titel der hochgeladenen Sequenz/Sammlung.
+    'title' => 'Foto Geo-Tool Upload'
+];

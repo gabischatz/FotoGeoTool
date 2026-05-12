@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="author" content="Lutz Müller (gabischatz)" />
+  <meta name="description" content="Video Frame Extractor: Einzelbilder lokal im Browser aus Videos extrahieren, optional GPS-Koordinaten und Datum in JPEG-EXIF schreiben und Frames als ZIP herunterladen." />
+  <meta name="keywords" content="Video Frame Extractor, Frames extrahieren, Video Einzelbilder, EXIF, GPS, JPEG, WhatsApp Video, Foto Geo-Tool" />
+  <meta name="robots" content="index, follow" />
+  <meta name="license" content="CC BY 4.0" />
+  <link rel="license" href="https://creativecommons.org/licenses/by/4.0/deed.de" />
+  <link rel="canonical" href="https://gabischatz.de.cool/FotoGeoTool/video-frame-extractor.html" />
+  <title>Foto Geo-Tool — Video Frame Extractor</title>
+
+  <!-- JSZip: alle Frames als ZIP herunterladen -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- piexifjs: EXIF-Metadaten (GPS, Zeitstempel) in JPEG schreiben -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.js"></script>
+
+  <style>
+    /* ── Grundeinstellungen ────────────────────────────────────────── */
+    :root {
+      --bg:       #0d0f13;
+      --surface:  #161920;
+      --panel:    #1e2230;
+      --border:   #2e3348;
+      --accent:   #f0c040;
+      --accent2:  #4a9eff;
+      --text:     #e8eaf0;
+      --muted:    #7a8099;
+      --danger:   #e25050;
+      --success:  #4caf7d;
+      --radius:   10px;
+      --font:     'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Kopfzeile ─────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 0.4rem;
+      letter-spacing: 0.05em;
+    }
+
+    /* Zurück-Link oben links */
+    #btn-back-fotogeo {
+      position: absolute;
+      left: 0;
+      top: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--accent2);
+      border-radius: 6px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.78rem;
+      font-family: var(--font);
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s;
+    }
+
+    #btn-back-fotogeo:hover { border-color: var(--accent2); }
+
+    @media (max-width: 640px) {
+      #btn-back-fotogeo,
+      #btn-open-geo {
+        position: static;
+        display: inline-block;
+        margin-top: 0.75rem;
+      }
+      header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+
+    /* GPS-Öffnen-Button oben rechts */
+    #btn-open-geo {
+      position: absolute;
+      right: 0;
+      top: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--accent2);
+      border-radius: 6px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.78rem;
+      font-family: var(--font);
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    #btn-open-geo:hover { border-color: var(--accent2); }
+
+    /* Grüner Punkt wenn GPS-Koordinaten eingetragen sind */
+    #geo-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      margin-right: 5px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    /* ── Upload-Bereich ────────────────────────────────────────────── */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: var(--surface);
+      margin-bottom: 1.5rem;
+    }
+
+    #drop-zone:hover,
+    #drop-zone.over {
+      border-color: var(--accent);
+      background: #1a1c24;
+    }
+
+    #drop-zone svg {
+      display: block;
+      margin: 0 auto 1rem;
+      opacity: 0.5;
+    }
+
+    #drop-zone p    { color: var(--muted); font-size: 0.9rem; }
+    #drop-zone span { color: var(--accent); }
+    #file-input     { display: none; }
+
+    /* ── Haupt-Layout ──────────────────────────────────────────────── */
+    #main-layout {
+      display: none; /* JS setzt display:grid wenn Video geladen */
+      gap: 1.5rem;
+      grid-template-columns: 1fr 300px;
+    }
+
+    @media (max-width: 799px) {
+      #main-layout { grid-template-columns: 1fr !important; }
+    }
+
+    /* ── Video-Vorschau ────────────────────────────────────────────── */
+    #video-wrap {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    #preview-video { width: 100%; display: block; background: #000; }
+
+    #video-info {
+      display: flex;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .info-chip { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.05em; }
+    .info-chip span { color: var(--accent2); }
+
+    /* Aufnahmezeit-Chip: grün wenn aus Dateinamen erkannt */
+    #chip-datetime.found span { color: var(--success); }
+
+    /* ── Einstellungs-Panel ────────────────────────────────────────── */
+    #settings-panel {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    #settings-panel h2 {
+      font-size: 0.8rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.75rem;
+    }
+
+    .setting-row { display: flex; flex-direction: column; gap: 0.4rem; }
+    .setting-row label { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.05em; }
+
+    .setting-row input[type="number"],
+    .setting-row select {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-family: var(--font);
+      font-size: 0.9rem;
+      width: 100%;
+    }
+
+    .setting-row input:focus,
+    .setting-row select:focus { outline: none; border-color: var(--accent); }
+
+    /* Modus-Tabs */
+    .tab-group { display: flex; gap: 0.5rem; }
+
+    .tab-btn {
+      flex: 1;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 0.4rem 0.2rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all 0.15s;
+    }
+
+    .tab-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+    /* ── Buttons ───────────────────────────────────────────────────── */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 0.7rem;
+      border-radius: 6px;
+      font-family: var(--font);
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      border: none;
+      text-transform: uppercase;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn:hover    { opacity: 0.85; }
+    .btn:active   { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-primary   { background: var(--accent); color: var(--bg); font-weight: bold; }
+    .btn-secondary { background: var(--panel); color: var(--accent2); border: 1px solid var(--border); }
+
+    /* ── Fortschritts-Balken ───────────────────────────────────────── */
+    #progress-wrap { display: none; flex-direction: column; gap: 0.4rem; }
+
+    #progress-bar-bg {
+      background: var(--panel);
+      border-radius: 4px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.1s;
+    }
+
+    #progress-label { font-size: 0.75rem; color: var(--muted); }
+
+    /* ── Galerie ───────────────────────────────────────────────────── */
+    #gallery-section { display: none; margin-top: 1.5rem; }
+
+    #gallery-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    #gallery-header h2 {
+      font-size: 0.85rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    #gallery-header span { font-size: 0.8rem; color: var(--accent); }
+
+    #btn-download-all { display: inline-block; width: auto; padding: 0.45rem 1rem; }
+
+    #gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+
+    .frame-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .frame-card:hover { border-color: var(--accent); }
+    .frame-card img   { width: 100%; display: block; }
+
+    .frame-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .frame-time { font-size: 0.72rem; color: var(--muted); }
+
+    .btn-dl {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--accent2);
+      border-radius: 5px;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.7rem;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: border-color 0.15s;
+    }
+
+    .btn-dl:hover { border-color: var(--accent2); }
+
+    /* Verstecktes Canvas */
+    #capture-canvas { display: none; }
+
+    /* ════════════════════════════════════════════════════════════════
+       NONMODALER GEO-DIALOG
+       Schwebt frei, verschiebbar per Titelleiste.
+       Blockiert nicht den Rest der App.
+       ════════════════════════════════════════════════════════════════ */
+    #geo-dialog {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      width: 280px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      z-index: 1000;
+      /* Standardmäßig unsichtbar; JS schaltet um */
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    /* Sichtbarer Zustand (Klasse wird per JS gesetzt) */
+    #geo-dialog.visible {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Titelleiste = Drag-Handle */
+    #geo-titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.7rem 1rem;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      cursor: grab;
+      user-select: none;
+    }
+
+    #geo-titlebar:active { cursor: grabbing; }
+
+    #geo-titlebar h3 {
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    #btn-close-geo {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0 0.2rem;
+      line-height: 1;
+      font-family: var(--font);
+      transition: color 0.15s;
+    }
+
+    #btn-close-geo:hover { color: var(--text); }
+
+    /* Inhalt des Dialogs */
+    #geo-body {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    /* Info-Badge (Kamera-Tag, nicht editierbar) */
+    .geo-badge {
+      font-size: 0.72rem;
+      color: var(--muted);
+      background: var(--panel);
+      border-radius: 5px;
+      padding: 0.4rem 0.6rem;
+    }
+
+    .geo-badge span { color: var(--accent); }
+
+    /* Koordinaten-Eingaben */
+    .geo-row { display: flex; flex-direction: column; gap: 0.3rem; }
+    .geo-row label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.05em; }
+
+    .geo-row input[type="number"] {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-family: var(--font);
+      font-size: 0.85rem;
+      width: 100%;
+    }
+
+    .geo-row input:focus { outline: none; border-color: var(--accent); }
+
+    /* Lat + Lon nebeneinander */
+    .geo-row-split { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+
+    /* "Meinen Standort"-Button */
+    #btn-locate {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--accent2);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-family: var(--font);
+      font-size: 0.78rem;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    #btn-locate:hover { border-color: var(--accent2); }
+
+    /* Statusmeldung im Dialog */
+    #geo-status { font-size: 0.73rem; min-height: 1.1em; line-height: 1.4; }
+    .status-ok      { color: var(--success); }
+    .status-err     { color: var(--danger); }
+    .status-loading { color: var(--muted); }
+
+    .geo-divider { border: none; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+  <!-- ── Kopfzeile ──────────────────────────────────────────────────── -->
+  <header>
+    <h1>▶ Frame Extractor</h1>
+    <p>Extrahiere Bilder direkt aus deinem Video – alles lokal im Browser</p>
+    <!-- Grüner Punkt leuchtet wenn Koordinaten eingetragen sind -->
+    <a id="btn-back-fotogeo" href="index.html" title="Zurück zum Foto Geo-Tool">← Foto Geo-Tool</a>
+    <button id="btn-open-geo" onclick="toggleGeoDialog()">
+      <span id="geo-indicator"></span>⊕ GPS
+    </button>
+  </header>
+
+  <!-- ── Upload-Bereich ─────────────────────────────────────────────── -->
+  <div id="drop-zone">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <rect x="2" y="2" width="20" height="20" rx="2"/>
+      <polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/>
+    </svg>
+    <p>Video hierher ziehen oder <span>klicken zum Auswählen</span></p>
+    <p style="margin-top:0.5rem; font-size:0.75rem;">MP4 · MOV · WebM · AVI · MKV</p>
+    <input id="file-input" type="file" accept="video/*" />
+  </div>
+
+  <!-- ── Haupt-Layout: Video-Player + Einstellungen ─────────────────── -->
+  <div id="main-layout">
+
+    <!-- Linke Spalte: Video-Player -->
+    <div id="video-wrap">
+      <video id="preview-video" controls preload="metadata"></video>
+      <div id="video-info">
+        <div class="info-chip">Datei: <span id="info-name">–</span></div>
+        <div class="info-chip">Dauer: <span id="info-dur">–</span></div>
+        <div class="info-chip">Auflösung: <span id="info-res">–</span></div>
+        <!-- Grün wenn Aufnahmetime aus Dateinamen gelesen wurde -->
+        <div class="info-chip" id="chip-datetime">
+          Aufnahme: <span id="info-datetime">–</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rechte Spalte: Einstellungen -->
+    <div id="settings-panel">
+      <h2>Einstellungen</h2>
+
+      <!-- Modus: Sekunden-Intervall oder jedes N-te Frame -->
+      <div class="setting-row">
+        <label>Extraktions-Modus</label>
+        <div class="tab-group">
+          <button class="tab-btn active" id="tab-sec"
+                  onclick="setMode('seconds')">Sekunden</button>
+          <button class="tab-btn" id="tab-frame"
+                  onclick="setMode('frames')">Frame-Nr.</button>
+        </div>
+      </div>
+
+      <!-- Sekunden-Modus: Abstand zwischen Frames -->
+      <div class="setting-row" id="row-seconds">
+        <label>Intervall (Sekunden)</label>
+        <input id="inp-interval" type="number" value="1" min="0.1" step="0.1" />
+      </div>
+
+      <!-- Frame-Modus: Jedes N-te Frame nehmen -->
+      <div class="setting-row" id="row-frames" style="display:none;">
+        <label>Jedes N-te Frame</label>
+        <input id="inp-nth" type="number" value="30" min="1" step="1" />
+      </div>
+
+      <!-- Bildformat: nur JPEG bekommt EXIF/GPS -->
+      <div class="setting-row">
+        <label>Bildformat</label>
+        <select id="inp-format">
+          <option value="image/jpeg">JPEG  ← EXIF / GPS</option>
+          <option value="image/png">PNG  (kein EXIF)</option>
+          <option value="image/webp">WebP  (kein EXIF)</option>
+        </select>
+      </div>
+
+      <!-- Qualität -->
+      <div class="setting-row">
+        <label>Qualität: <span id="quality-val">90</span>%</label>
+        <input id="inp-quality" type="range" min="10" max="100" value="90"
+               oninput="document.getElementById('quality-val').textContent = this.value"
+               style="width:100%; accent-color: var(--accent);" />
+      </div>
+
+      <!-- Maximale Frameanzahl -->
+      <div class="setting-row">
+        <label>Max. Frames</label>
+        <input id="inp-max" type="number" value="200" min="1" step="1" />
+      </div>
+
+      <!-- Fortschritts-Balken (sichtbar während Extraktion) -->
+      <div id="progress-wrap">
+        <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+        <div id="progress-label">Warte...</div>
+      </div>
+
+      <button id="btn-extract" class="btn btn-primary"
+              onclick="startExtraction()">▶ Frames extrahieren</button>
+
+      <button id="btn-cancel" class="btn btn-secondary"
+              style="display:none;" onclick="cancelExtraction()">
+        ✕ Abbrechen
+      </button>
+
+      <button class="btn btn-secondary" onclick="resetAll()">
+        ↩ Neues Video laden
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Galerie der extrahierten Frames ───────────────────────────── -->
+  <div id="gallery-section">
+    <div id="gallery-header">
+      <h2>Extrahierte Frames <span id="frame-count"></span></h2>
+      <button id="btn-download-all" class="btn btn-secondary"
+              onclick="downloadAll()">⬇ Alle als ZIP</button>
+    </div>
+    <div id="gallery"></div>
+  </div>
+
+  <!-- Verstecktes Canvas zum Pixel-Auslesen -->
+  <canvas id="capture-canvas"></canvas>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       NONMODALER GEO-DIALOG
+       Nur Koordinaten-Eingabe.
+       Datum/Uhrzeit kommen automatisch aus dem Dateinamen.
+       Kamera-Tag = "WhatsApp".
+       Verschiebbar per Titelleiste (Drag).
+       ════════════════════════════════════════════════════════════════ -->
+  <div id="geo-dialog" role="dialog" aria-label="GPS Koordinaten">
+
+    <!-- Titelleiste = Drag-Handle -->
+    <div id="geo-titlebar">
+      <h3>⊕ GPS Koordinaten</h3>
+      <button id="btn-close-geo" onclick="toggleGeoDialog()">✕</button>
+    </div>
+
+    <div id="geo-body">
+
+      <!-- Info: was automatisch passiert -->
+      <div class="geo-badge">
+        Kamera: <span>WhatsApp bei WhatsApp-Video</span> &nbsp;·&nbsp;
+        Zeit: <span>aus Dateiname</span>
+      </div>
+
+      <!-- Browser-Standort holen -->
+      <button id="btn-locate" onclick="fetchBrowserLocation()">
+        ⌖ Meinen Standort ermitteln
+      </button>
+
+      <!-- Statusmeldung für GPS-Suche -->
+      <div id="geo-status"></div>
+
+      <hr class="geo-divider" />
+
+      <!-- Breitengrad + Längengrad nebeneinander -->
+      <div class="geo-row-split">
+        <div class="geo-row">
+          <label>Breitengrad (Lat)</label>
+          <input id="inp-lat" type="number" step="0.000001"
+                 min="-90" max="90" placeholder="50.9848"
+                 oninput="onCoordsChanged()" />
+        </div>
+        <div class="geo-row">
+          <label>Längengrad (Lon)</label>
+          <input id="inp-lon" type="number" step="0.000001"
+                 min="-180" max="180" placeholder="11.0299"
+                 oninput="onCoordsChanged()" />
+        </div>
+      </div>
+
+      <!-- Höhe über Meeresspiegel (optional) -->
+      <div class="geo-row">
+        <label>Höhe in Metern (optional)</label>
+        <input id="inp-alt" type="number" step="1" placeholder="z. B. 200" />
+      </div>
+
+    </div>
+  </div>
+
+
+  <script>
+    // ════════════════════════════════════════════════════════════════
+    // GLOBALE VARIABLEN
+    // ════════════════════════════════════════════════════════════════
+
+    // Extraktions-Modus: 'seconds' oder 'frames'
+    let currentMode = 'seconds';
+
+    // Läuft gerade eine Extraktion?
+    let extractionRunning = false;
+
+    // Alle exportierten Frames (DataURL + Dateiname + Zeitstempel)
+    let extractedFrames = [];
+
+    // Aus dem Dateinamen gelesene Aufnahme-Basiszeit (Date oder null)
+    let videoBaseDate = null;
+
+    // DOM-Referenzen
+    const video     = document.getElementById('preview-video');
+    const canvas    = document.getElementById('capture-canvas');
+    const ctx       = canvas.getContext('2d');
+    const dropZone  = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const geoDialog = document.getElementById('geo-dialog');
+
+    // ════════════════════════════════════════════════════════════════
+    // DATUM AUS DATEINAME LESEN
+    //
+    // Unterstützte Formate:
+    //   WhatsApp:  WhatsApp_Video_2026-05-09_at_16_53_44.mp4
+    //   WhatsApp:  WhatsApp Video 2026-05-09 at 16-53-44.mp4
+    //   Samsung:   VID_20260509_165344.mp4
+    //   Generic:   2026-05-09_16-53-44.mp4
+    // ════════════════════════════════════════════════════════════════
+
+    function parseDateFromFilename(filename) {
+
+      // ── WhatsApp: enthält "at" zwischen Datum und Uhrzeit ──────────
+      // Beispiel: WhatsApp_Video_2026-05-09_at_16_53_44.mp4
+      const waPattern =
+        /(\d{4})[_-](\d{2})[_-](\d{2})[_ ]at[_ ](\d{2})[_-](\d{2})[_-](\d{2})/i;
+      const waMatch = filename.match(waPattern);
+      if (waMatch) {
+        return new Date(
+          parseInt(waMatch[1]),    // Jahr
+          parseInt(waMatch[2])-1,  // Monat (0-basiert in JS)
+          parseInt(waMatch[3]),    // Tag
+          parseInt(waMatch[4]),    // Stunde
+          parseInt(waMatch[5]),    // Minute
+          parseInt(waMatch[6])     // Sekunde
+        );
+      }
+
+      // ── Samsung-Format: VID_20260509_165344 ────────────────────────
+      const saPattern = /(\d{4})(\d{2})(\d{2})[_-](\d{2})(\d{2})(\d{2})/;
+      const saMatch   = filename.match(saPattern);
+      if (saMatch) {
+        return new Date(
+          parseInt(saMatch[1]),
+          parseInt(saMatch[2])-1,
+          parseInt(saMatch[3]),
+          parseInt(saMatch[4]),
+          parseInt(saMatch[5]),
+          parseInt(saMatch[6])
+        );
+      }
+
+      // ── ISO-ähnlich: 2026-05-09_16-53-44 ──────────────────────────
+      const isoPattern =
+        /(\d{4})[_-](\d{2})[_-](\d{2})[_T ](\d{2})[_:-](\d{2})[_:-](\d{2})/;
+      const isoMatch   = filename.match(isoPattern);
+      if (isoMatch) {
+        return new Date(
+          parseInt(isoMatch[1]),
+          parseInt(isoMatch[2])-1,
+          parseInt(isoMatch[3]),
+          parseInt(isoMatch[4]),
+          parseInt(isoMatch[5]),
+          parseInt(isoMatch[6])
+        );
+      }
+
+      return null; // kein Datum gefunden
+    }
+
+    // Datum schön formatieren für den Info-Chip
+    function formatDateDisplay(d) {
+      const pad = (n) => n.toString().padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+           + ` ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function isWhatsAppVideoName(name) {
+      return /whatsapp/i.test(String(name || ''));
+    }
+
+    function getFrameCameraName() {
+      return isWhatsAppVideoName(document.getElementById('info-name')?.textContent || '') ? 'WhatsApp' : 'Video-Frame';
+    }
+
+    function buildFrameDownloadName(index, timestamp) {
+      const sourceName = document.getElementById('info-name')?.textContent || 'video';
+      const frameDate = videoBaseDate ? new Date(videoBaseDate.getTime() + timestamp * 1000) : new Date(Date.now() + timestamp * 1000);
+      const pad = n => String(n).padStart(2, '0');
+
+      if (isWhatsAppVideoName(sourceName)) {
+        return `WhatsApp Image ${frameDate.getFullYear()}-${pad(frameDate.getMonth() + 1)}-${pad(frameDate.getDate())} at ${pad(frameDate.getHours())}.${pad(frameDate.getMinutes())}.${pad(frameDate.getSeconds())}_frame_${String(index + 1).padStart(4, '0')}.jpg`;
+      }
+
+      const stem = sourceName.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'video';
+      return `${stem}-frame-${String(index + 1).padStart(4, '0')}_${formatTimestamp(timestamp)}.jpg`;
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // NONMODALER GEO-DIALOG: Öffnen / Schließen / Drag
+    // ════════════════════════════════════════════════════════════════
+
+    let geoDialogOpen = false;
+
+    function toggleGeoDialog() {
+      geoDialogOpen = !geoDialogOpen;
+
+      if (geoDialogOpen) {
+        // display:flex setzen, dann in nächstem Frame .visible für Transition
+        geoDialog.style.display = 'flex';
+        requestAnimationFrame(() => geoDialog.classList.add('visible'));
+      } else {
+        geoDialog.classList.remove('visible');
+        // Nach der Transition (200ms) display:none setzen
+        setTimeout(() => {
+          if (!geoDialogOpen) geoDialog.style.display = 'none';
+        }, 200);
+      }
+    }
+
+    // Dialog per Titelleiste verschiebbar machen (Drag)
+    (function makeDraggable() {
+      const titlebar  = document.getElementById('geo-titlebar');
+      let dragOffsetX = 0;
+      let dragOffsetY = 0;
+      let dragging    = false;
+
+      titlebar.addEventListener('mousedown', (e) => {
+        // Schließen-Button soll nicht das Ziehen starten
+        if (e.target.id === 'btn-close-geo') return;
+        dragging    = true;
+        dragOffsetX = e.clientX - geoDialog.getBoundingClientRect().left;
+        dragOffsetY = e.clientY - geoDialog.getBoundingClientRect().top;
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        // Innerhalb des Browser-Fensters begrenzen
+        const newLeft = Math.max(0,
+          Math.min(window.innerWidth  - geoDialog.offsetWidth,  e.clientX - dragOffsetX));
+        const newTop  = Math.max(0,
+          Math.min(window.innerHeight - geoDialog.offsetHeight, e.clientY - dragOffsetY));
+        // right/bottom deaktivieren damit left/top greift
+        geoDialog.style.right  = 'auto';
+        geoDialog.style.bottom = 'auto';
+        geoDialog.style.left   = newLeft + 'px';
+        geoDialog.style.top    = newTop  + 'px';
+      });
+
+      document.addEventListener('mouseup', () => { dragging = false; });
+    })();
+
+    // Grünen Punkt aktualisieren wenn Koordinaten geändert werden
+    function onCoordsChanged() {
+      const lat = document.getElementById('inp-lat').value;
+      const lon = document.getElementById('inp-lon').value;
+      document.getElementById('geo-indicator').style.opacity =
+        (lat !== '' && lon !== '') ? '1' : '0';
+    }
+
+    // Browser-Geolokation ermitteln und in die Eingabefelder eintragen
+    function fetchBrowserLocation() {
+      if (!navigator.geolocation) {
+        setGeoStatus('Geolokation wird von diesem Browser nicht unterstützt.', 'err');
+        return;
+      }
+
+      setGeoStatus('⏳ Standort wird ermittelt...', 'loading');
+
+      navigator.geolocation.getCurrentPosition(
+        // Erfolg: Koordinaten in die Felder schreiben
+        (pos) => {
+          document.getElementById('inp-lat').value =
+            pos.coords.latitude.toFixed(6);
+          document.getElementById('inp-lon').value =
+            pos.coords.longitude.toFixed(6);
+          if (pos.coords.altitude !== null) {
+            document.getElementById('inp-alt').value =
+              Math.round(pos.coords.altitude);
+          }
+          onCoordsChanged();
+          setGeoStatus(
+            `✓ ${pos.coords.latitude.toFixed(4)}° N, `
+            + `${pos.coords.longitude.toFixed(4)}° E`,
+            'ok'
+          );
+        },
+        // Fehler: Meldung anzeigen
+        (err) => { setGeoStatus('Fehler: ' + err.message, 'err'); },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    function setGeoStatus(text, type) {
+      const el    = document.getElementById('geo-status');
+      el.textContent = text;
+      el.className   = `status-${type}`;
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // DROP-ZONE: Upload per Klick oder Drag & Drop
+    // ════════════════════════════════════════════════════════════════
+
+    dropZone.addEventListener('click',     () => fileInput.click());
+    fileInput.addEventListener('change',   (e) => {
+      if (e.target.files.length > 0) loadVideoFile(e.target.files[0]);
+    });
+    dropZone.addEventListener('dragover',  (e) => {
+      e.preventDefault();
+      dropZone.classList.add('over');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+    dropZone.addEventListener('drop',      (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('video/')) loadVideoFile(file);
+    });
+
+    // ════════════════════════════════════════════════════════════════
+    // VIDEO LADEN
+    // ════════════════════════════════════════════════════════════════
+
+    function loadVideoFile(file) {
+      // Alten Blob-URL freigeben
+      if (video.src && video.src.startsWith('blob:')) {
+        URL.revokeObjectURL(video.src);
+      }
+
+      video.src = URL.createObjectURL(file);
+      document.getElementById('info-name').textContent = file.name;
+
+      // Aufnahmezeitpunkt aus dem Dateinamen lesen
+      videoBaseDate = parseDateFromFilename(file.name);
+
+      // Info-Chip aktualisieren
+      const chip   = document.getElementById('chip-datetime');
+      const dtSpan = document.getElementById('info-datetime');
+
+      if (videoBaseDate) {
+        // Grün: Datum erkannt
+        dtSpan.textContent = formatDateDisplay(videoBaseDate);
+        chip.classList.add('found');
+      } else {
+        // Normal: Datum nicht erkannt, aktuelle Zeit wird als Fallback genutzt
+        dtSpan.textContent = 'nicht erkannt (Systemzeit)';
+        chip.classList.remove('found');
+      }
+
+      video.addEventListener('loadedmetadata', onVideoLoaded, { once: true });
+    }
+
+    function onVideoLoaded() {
+      // Dauer als mm:ss formatieren
+      const dur = video.duration;
+      const min = Math.floor(dur / 60).toString().padStart(2, '0');
+      const sec = Math.floor(dur % 60).toString().padStart(2, '0');
+      document.getElementById('info-dur').textContent = `${min}:${sec}`;
+
+      document.getElementById('info-res').textContent =
+        `${video.videoWidth} × ${video.videoHeight}`;
+
+      // Layout umschalten: Drop-Zone → Hauptansicht
+      dropZone.style.display = 'none';
+      document.getElementById('main-layout').style.display = 'grid';
+
+      resetGallery();
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // MODUS UMSCHALTEN (Sekunden / Frame-Nummer)
+    // ════════════════════════════════════════════════════════════════
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.getElementById('tab-sec').classList.toggle('active',   mode === 'seconds');
+      document.getElementById('tab-frame').classList.toggle('active', mode === 'frames');
+      document.getElementById('row-seconds').style.display = mode === 'seconds' ? '' : 'none';
+      document.getElementById('row-frames').style.display  = mode === 'frames'  ? '' : 'none';
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // FRAME-EXTRAKTION
+    // ════════════════════════════════════════════════════════════════
+
+    async function startExtraction() {
+      if (!video.src || extractionRunning) return;
+
+      const format    = document.getElementById('inp-format').value;
+      const quality   = parseFloat(document.getElementById('inp-quality').value) / 100;
+      const maxFrames = parseInt(document.getElementById('inp-max').value, 10);
+
+      extractionRunning = true;
+      resetGallery();
+      extractedFrames   = [];
+
+      document.getElementById('progress-wrap').style.display = 'flex';
+      document.getElementById('btn-extract').disabled        = true;
+      document.getElementById('btn-cancel').style.display    = 'block';
+
+      if (currentMode === 'seconds') {
+        // ── Modus: festes Zeitintervall ────────────────────────────────
+        const interval    = parseFloat(document.getElementById('inp-interval').value);
+        const duration    = video.duration;
+        const totalFrames = Math.min(Math.floor(duration / interval), maxFrames);
+        let frameIndex    = 0;
+        let currentTime   = 0;
+
+        while (currentTime <= duration && frameIndex < maxFrames && extractionRunning) {
+          await seekTo(currentTime);
+          await captureFrame(frameIndex, currentTime, format, quality);
+          updateProgress(frameIndex, totalFrames);
+          frameIndex++;
+          currentTime += interval;
+        }
+
+      } else {
+        // ── Modus: jedes N-te Frame ────────────────────────────────────
+        const nth              = parseInt(document.getElementById('inp-nth').value, 10);
+        const duration         = video.duration;
+        const estimatedFPS     = await estimateFPS();
+        const totalFramesVideo = Math.floor(duration * estimatedFPS);
+        const toExtract        = Math.min(Math.floor(totalFramesVideo / nth), maxFrames);
+        let extracted          = 0;
+
+        for (let i = 0;
+             i < totalFramesVideo && extracted < maxFrames && extractionRunning;
+             i++) {
+          if (i % nth === 0) {
+            const t = i / estimatedFPS;
+            await seekTo(t);
+            await captureFrame(extracted, t, format, quality);
+            updateProgress(extracted, toExtract);
+            extracted++;
+          }
+        }
+      }
+
+      // Fertig
+      extractionRunning = false;
+      document.getElementById('progress-wrap').style.display = 'none';
+      document.getElementById('btn-extract').disabled        = false;
+      document.getElementById('btn-cancel').style.display    = 'none';
+
+      if (extractedFrames.length > 0) {
+        document.getElementById('gallery-section').style.display = 'block';
+        document.getElementById('frame-count').textContent =
+          `(${extractedFrames.length})`;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // EXIF IN JPEG SCHREIBEN (piexifjs)
+    // ════════════════════════════════════════════════════════════════
+
+    // Dezimalgrad → DMS (Grad, Minuten, Sekunden) als Zähler/Nenner-Paare
+    // piexifjs braucht dieses Format für GPS-IFD-Einträge
+    function decimalToDMS(deg) {
+      const d = Math.floor(Math.abs(deg));
+      const m = Math.floor((Math.abs(deg) - d) * 60);
+      const s = Math.round(((Math.abs(deg) - d) * 60 - m) * 60 * 100);
+      // [[Grad,1], [Minuten,1], [Sekunden×100, 100]]
+      return [[d, 1], [m, 1], [s, 100]];
+    }
+
+    // EXIF in eine JPEG DataURL schreiben.
+    // videoOffset = Sekunden seit Videobeginn → wird zur Basiszeit addiert
+    function embedExif(dataURL, videoOffset) {
+      try {
+        if (typeof piexif === 'undefined') return dataURL;
+
+        // Nur JPEG unterstützt EXIF
+        const isJpeg = document.getElementById('inp-format').value === 'image/jpeg';
+        if (!isJpeg) return dataURL;
+
+        const exifObj = { '0th': {}, 'Exif': {}, 'GPS': {} };
+
+        // ── Kamera/Quelle: WhatsApp nur bei WhatsApp-Video, sonst Video-Frame ──
+        const cameraName = getFrameCameraName();
+        exifObj['0th'][piexif.ImageIFD.Make]     = cameraName;
+        exifObj['0th'][piexif.ImageIFD.Model]    = cameraName;
+        exifObj['0th'][piexif.ImageIFD.Software] = 'Foto Geo-Tool Video Frame Extractor';
+
+        // ── Zeitstempel ────────────────────────────────────────────────
+        // Basiszeit aus Dateinamen (Fallback: aktuelle Systemzeit)
+        const base      = videoBaseDate ? videoBaseDate : new Date();
+        // Zeitpunkt dieses Frames = Basiszeit + Video-Offset in Millisekunden
+        const frameDate = new Date(base.getTime() + videoOffset * 1000);
+
+        const pad = (n) => n.toString().padStart(2, '0');
+        const exifDateStr =
+          `${frameDate.getFullYear()}:`
+          + `${pad(frameDate.getMonth()+1)}:`
+          + `${pad(frameDate.getDate())} `
+          + `${pad(frameDate.getHours())}:`
+          + `${pad(frameDate.getMinutes())}:`
+          + `${pad(frameDate.getSeconds())}`;
+
+        exifObj['0th'][piexif.ImageIFD.DateTime]          = exifDateStr;
+        exifObj['Exif'][piexif.ExifIFD.DateTimeOriginal]  = exifDateStr;
+        exifObj['Exif'][piexif.ExifIFD.DateTimeDigitized] = exifDateStr;
+
+        // ── GPS-Koordinaten (nur wenn Lat + Lon angegeben) ─────────────
+        const latVal = parseFloat(document.getElementById('inp-lat').value);
+        const lonVal = parseFloat(document.getElementById('inp-lon').value);
+        const altVal = parseFloat(document.getElementById('inp-alt').value);
+
+        if (!isNaN(latVal) && !isNaN(lonVal)) {
+          exifObj['GPS'][piexif.GPSIFD.GPSLatitudeRef]  = latVal >= 0 ? 'N' : 'S';
+          exifObj['GPS'][piexif.GPSIFD.GPSLatitude]     = decimalToDMS(latVal);
+          exifObj['GPS'][piexif.GPSIFD.GPSLongitudeRef] = lonVal >= 0 ? 'E' : 'W';
+          exifObj['GPS'][piexif.GPSIFD.GPSLongitude]    = decimalToDMS(lonVal);
+
+          if (!isNaN(altVal)) {
+            exifObj['GPS'][piexif.GPSIFD.GPSAltitudeRef] = 0; // 0 = über NN
+            exifObj['GPS'][piexif.GPSIFD.GPSAltitude]    =
+              [Math.abs(Math.round(altVal)), 1];
+          }
+        }
+
+        // EXIF als Bytes und in DataURL einsetzen
+        const exifBytes = piexif.dump(exifObj);
+        return piexif.insert(exifBytes, dataURL);
+
+      } catch (err) {
+        // Bei Fehler Original zurückgeben (Bild bleibt nutzbar)
+        console.warn('EXIF-Einbettung fehlgeschlagen:', err);
+        return dataURL;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // FPS SCHÄTZEN (für Frame-Modus)
+    // ════════════════════════════════════════════════════════════════
+
+    function estimateFPS() {
+      return new Promise((resolve) => {
+        // Fallback wenn requestVideoFrameCallback nicht verfügbar
+        if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) {
+          resolve(30);
+          return;
+        }
+
+        let t1 = null;
+        video.currentTime = 0;
+        video.play();
+
+        video.requestVideoFrameCallback((now, meta) => {
+          t1 = meta.mediaTime;
+          video.requestVideoFrameCallback((now2, meta2) => {
+            video.pause();
+            const diff = meta2.mediaTime - t1;
+            // diff = Abstand zweier aufeinanderfolgender Frames in Sekunden
+            resolve(diff > 0 ? Math.round(1 / diff) : 30);
+          });
+        });
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // VIDEO SPRINGEN + FRAME AUFNEHMEN
+    // ════════════════════════════════════════════════════════════════
+
+    // Springt zu einer Zeitposition, wartet auf 'seeked'-Event
+    function seekTo(time) {
+      return new Promise((resolve) => {
+        video.currentTime = Math.min(time, video.duration - 0.001);
+        video.addEventListener('seeked', resolve, { once: true });
+      });
+    }
+
+    // Zeichnet aktuellen Frame auf Canvas, baut DataURL, bettet EXIF ein
+    async function captureFrame(index, timestamp, format, quality) {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Roh-DataURL vom Canvas (ohne Metadaten)
+      let dataURL = canvas.toDataURL(format, quality);
+
+      // EXIF mit Zeitstempel + GPS einbetten (nur JPEG)
+      dataURL = embedExif(dataURL, timestamp);
+
+      const ext = format.split('/')[1];
+
+      // Frame speichern für ZIP-Download
+      extractedFrames.push({
+        dataURL,
+        filename: format === 'image/jpeg' ? buildFrameDownloadName(index, timestamp) : `frame_${String(index+1).padStart(4,'0')}_${formatTimestamp(timestamp)}.${ext}`,
+        timestamp
+      });
+
+      // Karte in der Galerie anlegen
+      addFrameCard(index, timestamp, dataURL);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // GALERIE
+    // ════════════════════════════════════════════════════════════════
+
+    function addFrameCard(index, timestamp, dataURL) {
+      const gallery = document.getElementById('gallery');
+
+      const card    = document.createElement('div');
+      card.className = 'frame-card';
+
+      const img    = document.createElement('img');
+      img.src      = dataURL;
+      img.alt      = `Frame ${index+1}`;
+
+      const footer = document.createElement('div');
+      footer.className = 'frame-footer';
+
+      const timeLabel = document.createElement('span');
+      timeLabel.className   = 'frame-time';
+      timeLabel.textContent = `#${index+1}  ${timestamp.toFixed(2)}s`;
+
+      const dlBtn   = document.createElement('button');
+      dlBtn.className   = 'btn-dl';
+      dlBtn.textContent = '⬇';
+      dlBtn.title       = 'Einzeln herunterladen';
+      dlBtn.onclick     = () =>
+        downloadSingle(dataURL, extractedFrames[index].filename);
+
+      footer.appendChild(timeLabel);
+      footer.appendChild(dlBtn);
+      card.appendChild(img);
+      card.appendChild(footer);
+      gallery.appendChild(card);
+    }
+
+    function updateProgress(current, total) {
+      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+      document.getElementById('progress-bar').style.width   = `${pct}%`;
+      document.getElementById('progress-label').textContent =
+        `Frame ${current+1} von ${total} (${pct}%)`;
+    }
+
+    function cancelExtraction() { extractionRunning = false; }
+
+    // ════════════════════════════════════════════════════════════════
+    // DOWNLOAD
+    // ════════════════════════════════════════════════════════════════
+
+    function downloadSingle(dataURL, filename) {
+      const a   = document.createElement('a');
+      a.href     = dataURL;
+      a.download = filename;
+      a.click();
+    }
+
+    async function downloadAll() {
+      if (extractedFrames.length === 0) return;
+
+      const btn       = document.getElementById('btn-download-all');
+      btn.disabled    = true;
+      btn.textContent = '⏳ Erstelle ZIP...';
+
+      const zip = new JSZip();
+
+      for (const frame of extractedFrames) {
+        // DataURL → Base64 (Komma-Teil abschneiden)
+        const base64 = frame.dataURL.split(',')[1];
+        zip.file(frame.filename, base64, { base64: true });
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'frames.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      btn.disabled    = false;
+      btn.textContent = '⬇ Alle als ZIP';
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // HILFSFUNKTIONEN
+    // ════════════════════════════════════════════════════════════════
+
+    // Zeitstempel für den Dateinamen: "mm-ss-ff" (keine Sonderzeichen)
+    function formatTimestamp(t) {
+      const min = Math.floor(t / 60).toString().padStart(2, '0');
+      const sec = (t % 60).toFixed(2).padStart(5, '0').replace('.', '-');
+      return `${min}-${sec}`;
+    }
+
+    function resetGallery() {
+      extractedFrames = [];
+      document.getElementById('gallery').innerHTML            = '';
+      document.getElementById('gallery-section').style.display = 'none';
+      document.getElementById('frame-count').textContent       = '';
+    }
+
+    function resetAll() {
+      extractionRunning = false;
+      resetGallery();
+      video.pause();
+      if (video.src.startsWith('blob:')) URL.revokeObjectURL(video.src);
+      video.src = '';
+
+      document.getElementById('main-layout').style.display   = 'none';
+      dropZone.style.display                                  = 'block';
+      document.getElementById('progress-wrap').style.display = 'none';
+      document.getElementById('btn-extract').disabled        = false;
+      document.getElementById('btn-cancel').style.display    = 'none';
+      fileInput.value = '';
+
+      videoBaseDate = null;
+    }
+  </script>
+</body>
+</html>

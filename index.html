@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+
+<!--
+ Projekt: Foto Geo-Tool
+ Datei: https://gabischatz.de.cool/FotoGeoTool/index.html
+ Autor: Lutz Müller
+ Programmiersprache: html
+
+ Cronik:
+   Version-Datum:
+     0.0.1, 2.5.2026, 11:46:01 // UTC+2 Deutschland
+      - Datei erstellt
+     0.0.2, 7.5.2026, 12:35:00 // UTC+2 Deutschland
+      - Kopfbereich wie Tour Analyzer Plus ergänzt: Standortanzeige mit Hover-Ortssuche
+     0.0.3, 7.5.2026, 12:45:00 // UTC+2 Deutschland
+      - Ortsdaten werden lokal aus ./zipcodes.json im FotoGeoTool-Ordner geladen
+     0.0.4, 7.5.2026, 13:05:00 // UTC+2 Deutschland
+      - Klick auf Standortanzeige öffnet Ortssuche als Panel über der Karte wie im Tour Analyzer Plus
+     0.0.5, 7.5.2026, 15:10:00 // UTC+2 Deutschland
+      - HTML-Aufbau nach Screenshot umgestellt: Kopfzeile links Titel, rechts Standort/Hilfe; Bilder-Liste als Auswahlfeld; Suche als Karten-Overlay
+     0.0.6, 7.5.2026, 15:40:00 // UTC+2 Deutschland
+      - GeoImgr-ähnlichen Bild-/EXIF-Arbeitsbereich unter der Karte ergänzt
+     0.0.7, 7.5.2026, 16:20:00 // UTC+2 Deutschland
+      - Mehrfachauswahl per Drag & Drop ergänzt: unbearbeitete Bilder im Auswahlfeld, gespeicherte Bilder unten
+     0.0.9, 7.5.2026, 16:55:00 // UTC+2 Deutschland
+      - Doppelten linken Speicher-Button entfernt; rechter EXIF-Button heißt jetzt nur noch Speichern
+     0.1.0, 7.5.2026, 17:15:00 // UTC+2 Deutschland
+      - Hauptlayout als klares Zwei-Spalten-Grid umgesetzt: links Bedienung/Bilder, rechts Standort/Karte/Geo-Editor
+     0.1.1, 7.5.2026, 17:35:00 // UTC+2 Deutschland
+      - BUGFIX: Datum-Fallback aus WhatsApp-/Android-/iPhone-Dateinamen in script.js ergänzt
+     0.1.2, 7.5.2026, 18:05:00 // UTC+2 Deutschland
+      - FORMAT: Überschrift verkleinert, Orientierungs-Linien entfernt, Karte nach oben gerückt, Geo-Editor-Inputs verkleinert
+     0.1.3, 7.5.2026, 18:35:00 // UTC+2 Deutschland
+      - BUGFIX: Bildgruppen werden ohne localStorage-Quota-Fehler geladen; große Bilddaten bleiben in der aktuellen Sitzung nutzbar
+     0.1.4, 7.5.2026, 18:55:00 // UTC+2 Deutschland
+      - BUGFIX: Kartenzoom beim Laden von Bildern mit Koordinaten auf maximale Detailstufe gesetzt
+     0.1.5, 7.5.2026, 19:10:00 // UTC+2 Deutschland
+      - BUGFIX: Aktueller Standort und gespeicherte Position zoomen jetzt zuverlässig auf maximale Detailstufe
+     0.1.6, 7.5.2026, 19:25:00 // UTC+2 Deutschland
+      - BUGFIX: Anderes Bild wählen und Cache löschen setzen das aktuelle Bild vollständig zurück
+     0.1.7, 7.5.2026, 19:55:00 // UTC+2 Deutschland
+      - BUGFIX: Gespeicherte Bilder werden aus der oberen Unbearbeitet-Liste entfernt
+      - NEU: Fortbewegungsart-Panel links; Metadaten nach rechts verschoben
+      - ZIP: Panoramax-kompatible panoramax.csv statt einzelner JSON-Dateien pro Bild
+     0.1.8, 7.5.2026, 20:25:00 // UTC+2 Deutschland
+      - BUGFIX: Gespeichertes Bild wird zuverlässig aus der oberen Unbearbeitet-Liste entfernt
+      - BUGFIX: ZIP-Download löscht Server-Bilder nicht mehr automatisch vor Panoramax-Upload
+      - PANORAMAX: Upload-PHP prüft Bildanzahl, erzeugt panoramax.csv aus Serverdateien und nutzt serverseitigen Token/CLI
+     0.1.9, 8.5.2026, 07:20:00 // UTC+2 Deutschland
+      - FORMAT: Fortbewegungsart-Panel optisch angepasst: kein heller Kasten mehr, Buttons blau/weiß und grauer Hover
+     0.1.10, 8.5.2026, 07:40:00 // UTC+2 Deutschland
+      - FORMAT: Fortbewegungsart-Panel: größere Überschrift, Taxi-Icon, größere Button-Icons und ausgewählte Farbe angepasst
+     0.1.11, 8.5.2026, 08:05:00 // UTC+2 Deutschland
+      - BUGFIX: Fortbewegungsart wird beim Speichern als Keyword übernommen; WhatsApp-Dateiname wird als Kamera-Hinweis genutzt
+     0.1.12, 8.5.2026, 08:20:00 // UTC+2 Deutschland
+      - FORMAT: Abstand der Fortbewegungsart-Überschrift angepasst
+     0.1.13, 8.5.2026, 08:40:00 // UTC+2 Deutschland
+      - LAYOUT: Bilder-Liste unter die Bildanzeige verschoben
+     0.1.14, 8.5.2026, 09:15:00 // UTC+2 Deutschland
+      - NEU: Panoramax-Anmeldepanel mit Sitzungstoken ergänzt; Upload über PHP kann Token aus der Sitzung nutzen
+     0.1.15, 8.5.2026, 09:35:00 // UTC+2 Deutschland
+      - FORMAT: Panoramax-Logo und Aktionsbuttons angepasst; Token-Löschen-Button umbenannt
+     0.1.16, 8.5.2026, 09:55:00 // UTC+2 Deutschland
+      - PANORAMAX: Kopfbutton öffnet nur das Anmeldepanel; Panel-Aktionen auf Meine Bilder, Upload starten und Token generieren getrennt
+     0.1.17, 8.5.2026, 10:10:00 // UTC+2 Deutschland
+      - PANORAMAX: Token wird dauerhaft im Browser gespeichert und nur über den Löschen-Button entfernt
+     0.1.18, 8.5.2026, 10:35:00 // UTC+2 Deutschland
+      - LAYOUT: Geo-Editor direkt unter die Karte gesetzt; Panoramax-Anmeldung darunter; Layout breiter und niedriger für 80%-Browserzoom
+     0.1.19, 8.5.2026, 10:55:00 // UTC+2 Deutschland
+      - NEU: Gespeicherte Bilder werden nach Aufnahmedatum sortiert, damit ZIP und Panoramax-Upload chronologisch arbeiten
+     0.1.22, 8.5.2026 // UTC+2 Deutschland
+      - Schriftgrößen-Standardisierung in style.css ergänzt.
+     0.1.24, 8.5.2026 // UTC+2 Deutschland
+      - Description/Alternativtext mit Plus-/Copyright-/Alt-Text-Hilfe erweitert.
+      - Beschreibung wird pro Bild zwischengespeichert und beim Fokus größer.
+     0.1.25, 8.5.2026 // UTC+2 Deutschland
+      - BUGFIX: script.js-Fehler bei Description-Helfern und Karteninitialisierung behoben.
+     0.1.26, 8.5.2026 // UTC+2 Deutschland
+      - Reihenfolge der Fortbewegungsart-Buttons umgekehrt.
+      - Description-Feld als Morph-Eingabe mit festen Seitenbuttons verbessert.
+     0.1.27, 8.5.2026 // UTC+2 Deutschland
+      - Description/Alternativtext-Feld öffnet beim Fokus als große Bearbeitungsleiste.
+      - Eigene Speichern- und Schließen-Schaltfläche für die vergrößerte Description-Leiste ergänzt.
+     0.1.28, 8.5.2026 // UTC+2 Deutschland
+      - ALT-Link zu bilder-alt.de wieder entfernt.
+     0.1.29, 8.5.2026 // UTC+2 Deutschland
+      - Google-Lens-Test über öffentliche Bild-URL ergänzt.
+      - Geo-Editor erhält Button „Lens“ zum Kopieren/Öffnen der Server-Bild-URL.
+     0.1.30, 8.5.2026 // UTC+2 Deutschland
+      - Description/Alternativtext-Bearbeitung aus dem Flow genommen und als Dialog über dem Dokument angezeigt.
+      - Google-Lens-Hinweis bleibt nur als Link-/URL-Test, keine API-Automatik.
+     0.1.31, 8.5.2026 // UTC+2 Deutschland
+      - Description/Alternativtext nicht mehr als expandierendes Input-Feld.
+      - Anzeige-Div sieht wie Eingabebox aus und öffnet einen eigenen Dialog.
+     0.1.32, 8.5.2026 // UTC+2 Deutschland
+      - Description-Dialog kleiner gemacht, verschiebbar und Position im Browser gespeichert.
+     0.1.33, 8.5.2026 // UTC+2 Deutschland
+      - Button „Alt-Text holen“ im Description-Dialog ergänzt.
+      - Kleiner Lens/Alt-Button neben der kompakten Description-Anzeige ergänzt.
+     0.1.34, 8.5.2026 // UTC+2 Deutschland
+      - CSS-Bereinigung in style.css übernommen.
+     0.1.35, 8.5.2026 // UTC+2 Deutschland
+      - Geo-Editor-Button-Zeile auf Flex ohne eigenen Hintergrund korrigiert.
+      - Google-Lens-Prompt auf „SEO-Alternativtext für dieses Bild“ geändert.
+     0.1.36, 8.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Google-Lens-Fenster wird sofort beim Klick geöffnet, damit der Popup-Blocker nicht greift.
+     0.1.37, 8.5.2026 // UTC+2 Deutschland
+      - Google-Lens-Upload ist nur noch temporär und speichert das Bild nicht in der Bilderliste.
+     0.1.38, 8.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Google-Lens-Prompt wird sofort beim Klick in die Zwischenablage geschrieben.
+     0.1.39, 8.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Google-Lens-Vorbereitung hängt nicht mehr wegen fehlender temporärer Bildfunktion.
+     0.1.40, 8.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Panoramax-Tokenfeld zeigt bei gelöscht/nicht gespeichert wieder Placeholder statt alte Punkte.
+     0.1.41, 8.5.2026 // UTC+2 Deutschland
+      - Panoramax-Upload-Button ist ohne Browser-Token deaktiviert.
+     0.1.42, 8.5.2026 // UTC+2 Deutschland
+      - Panoramax-Upload-Fehlerausgabe verbessert.
+     0.1.43, 8.5.2026 // UTC+2 Deutschland
+      - CSS doppelte Selektor-Blöcke innerhalb gleicher Ebene bereinigt.
+     0.1.44, 8.5.2026 // UTC+2 Deutschland
+      - Beschreibung/Alternativtext wird in Metadaten angezeigt.
+     0.1.45, 8.5.2026 // UTC+2 Deutschland
+      - Panoramax-Transport-Tags auf gültige Werte walk/bike/car umgestellt.
+     0.1.46, 8.5.2026 // UTC+2 Deutschland
+      - SEO-/Open-Graph-/Twitter-Metaangaben für Foto Geo-Tool ergänzt.
+      - Lizenzdatei CC BY 4.0 hinzugefügt.
+     0.1.47, 8.5.2026 // UTC+2 Deutschland
+      - Panoramax-Testversion: EXIF-Schreiben entschärft, kein DocumentName und keine XPKeywords mehr.
+     0.1.48, 8.5.2026 // UTC+2 Deutschland
+      - Panoramax-Minimaltest: gespeicherte JPEGs schreiben nur noch GPS und Datum in EXIF.
+     0.1.49, 8.5.2026 // UTC+2 Deutschland
+      - Panoramax-Rein-EXIF-Test: alte EXIF-Daten werden beim Speichern nicht mehr übernommen.
+     0.1.50, 8.5.2026 // UTC+2 Deutschland
+      - Panoramax-Reencode-Test: gespeicherte Bilder werden komplett neu als JPEG geschrieben und bekommen danach nur GPS+Datum.
+     0.1.51, 8.5.2026 // UTC+2 Deutschland
+      - BUGFIX: writeExifTagsForCurrentImage ist wieder async, damit der JPEG-Reencode mit await funktioniert.
+     0.1.52, 8.5.2026 // UTC+2 Deutschland
+      - Panoramax-360-Test: Bei 2:1-Bildern werden GPano-XMP-Metadaten ergänzt.
+     0.1.53, 8.5.2026 // UTC+2 Deutschland
+      - Video-Frame-Extractor als Zusatzseite eingebunden.
+      - Link zum Frame-Extractor in der App ergänzt.
+     0.1.54, 9.5.2026 // UTC+2 Deutschland
+      - Video-Frame-Extractor in den Foto-Geo-Workflow integriert.
+      - Video wird in der Hauptseite gemerkt, GPS/Datum/Beschreibung werden an die Frame-Erzeugung übergeben.
+     0.1.55, 9.5.2026 // UTC+2 Deutschland
+      - Video-Frames werden als Serie behandelt.
+      - WhatsApp-Videos erzeugen WhatsApp-Frame-Namen und Kamera/Quelle WhatsApp.
+     0.1.56, 9.5.2026 // UTC+2 Deutschland
+      - Video-Dateiname im Video-Kasten nach oben gesetzt.
+      - Frame-Extraktion ist auch ohne gesetzte Koordinaten möglich; GPS wird später beim Speichern der Einzelbilder gesetzt.
+     0.1.57, 9.5.2026 // UTC+2 Deutschland
+      - Video-Dateiname ohne Vorsatz angezeigt.
+      - Buttons im Fotoframeextraktor wechseln aktiv/deaktiviert.
+      - BUGFIX: dateInput-ReferenceError beim EXIF-Schreiben beseitigt.
+     0.1.58, 9.5.2026 // UTC+2 Deutschland
+      - Fotoframeextraktor: Beschreibung/Status nach links erweitert.
+      - Thumbnails können per Klick ausgeschlossen werden und werden nicht ins FotoGeo-Tool übernommen.
+     0.1.59, 9.5.2026 // UTC+2 Deutschland
+      - Fotoframeextraktor: Beschreibung, Serien-Hinweis und Fortschritt nach links unter das Video verschoben.
+     0.1.60, 9.5.2026 // UTC+2 Deutschland
+      - Geo-Editor-Buttonleiste enger gesetzt.
+      - Panoramax-Upload-Button wird nach gespeichertem letzten Bild rot hervorgehoben.
+     0.1.61, 9.5.2026 // UTC+2 Deutschland
+      - Hilfeseite hilfe.html ergänzt.
+      - Hilfe-Link auf lokale Hilfeseite gesetzt.
+     0.1.62, 9.5.2026 // UTC+2 Deutschland
+      - BUGFIX: @ im Beschreibungstext wird jetzt als Copyright-Platzhalter erkannt.
+      - BUGFIX: Cache löschen setzt Panoramax-Upload-Bereit-Status zurück.
+      - Upload-Button zeigt kein angehängtes „bereit“ mehr.
+     0.1.63, 9.5.2026 // UTC+2 Deutschland
+      - Fotoframeextraktor: Beschreibung und Statuszeilen links auf kompakte Ein-Zeilen-Höhe gesetzt.
+     0.1.64, 9.5.2026 // UTC+2 Deutschland
+      - Hilfeseite und Videoskript um Ortsauswahl per Suchfeld ergänzt.
+     0.1.65, 9.5.2026 // UTC+2 Deutschland
+      - Geo-Editor-Buttonleiste sauber ausgerichtet: keine Button-Außenränder, feste Grid-Spalten und kein Überlaufen am rechten Rand.
+     0.1.66, 9.5.2026 // UTC+2 Deutschland
+      - Fotoframeextraktor: videoFrameProgress dauerhaft in den linken Bereich verschoben.
+     0.1.67, 9.5.2026 // UTC+2 Deutschland
+      - Koordinaten aus Datei-/Videonamen werden erkannt, z. B. „WhatsApp Video 2026-05-09 at 16.53.44, 51.096510, 10.591496.mp4“.
+     0.1.68, 9.5.2026 // UTC+2 Deutschland
+      - Koordinaten im Dateinamen erkennen jetzt auch die für Europa häufige Reihenfolge Längengrad, Breitengrad.
+     0.1.69, 9.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Wenn vor @ oder © bereits Beschreibungstext steht, wird automatisch „ | “ vor den Copyright-Teil gesetzt.
+     0.1.70, 9.5.2026 // UTC+2 Deutschland
+      - Fotoframeextraktor: gewünschte Frame-Anzahl wird jetzt gleichmäßig über die gesamte Videolänge verteilt statt nur die ersten Frames zu nehmen.
+     0.1.72, 11.5.2026 // UTC+2 Deutschland
+      - Höhe wird nach dem Setzen des Markers aus den Koordinaten abgefragt und in EXIF geschrieben.
+      - Blickrichtung kann jetzt ohne Shift über einen klickbaren Richtungskreis gesetzt werden.
+      - BUGFIX: writeExifTagsForCurrentImage ist wieder async, damit await gültig ist.
+     0.1.73, 11.5.2026 // UTC+2 Deutschland
+      - Blickrichtungsbereich auf maximal 45° begrenzt.
+      - Bei normalen Einzelbildern gibt es nur den Start-Blickrichtungspunkt; der zweite Drehpunkt ist nur für Video-Frames aktiv.
+      - Der zweite Punkt wird nicht mehr orange gezeichnet; stattdessen erscheint ein roter Kreisbogen mit Pfeil.
+     0.1.74, 11.5.2026 // UTC+2 Deutschland
+      - Metadaten-Anzeige zeigt jetzt EXIF-Höhe und EXIF-Blickrichtung an.
+      - EXIF-Schreiben für GPSAltitude und GPSImgDirection nutzt feste GPS-Tag-IDs als Fallback.
+      - Video-Frames übernehmen Höhe und Richtung in die Einträge und schreiben beide Werte in die JPEG-EXIF-Daten.
+     0.1.75, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Favicon-/App-Icon-Links im HTML-Kopf ergänzt.
+      - NEU: icon.svg als kleines Foto-Geo-Tool-Symbol hinzugefügt.
+     0.1.76, 11.5.2026 // UTC+2 Deutschland
+      - Panoramax-Upload nutzt jetzt direkt die HTTP-API statt panoramax_cli.
+      - Beim Upload werden GPS/Datum als override_latitude, override_longitude und override_capture_time mitgesendet.
+      - Serverseitige Upload-Fehler werden mit Upload-Set-ID und /files-Diagnose zurückgegeben.
+     0.1.77, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: rote Pfeilspitze am Richtungskreisbogen wird jetzt tangential korrekt gedreht.
+      - NEU: Video-Frames bekommen keine statische Blickrichtung mehr, sondern eine fortlaufende 360°-Panorama-Richtung.
+      - NEU: Schrittweite der Video-Frame-Richtungen = 360° / (aktive Bilder + 1).
+     0.1.78, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Beim Speichern wird nun die individuelle Blickrichtung des aktuellen Bild-Eintrags geschrieben, nicht mehr pauschal die Startblickrichtung.
+      - BUGFIX: Video-Frame-Richtungen bleiben damit in GPSImgDirection je Bild erhalten.
+      - UI: Brand-Block für Icon/Titel/Subtext sauberer ausgerichtet.
+     0.1.79, 11.5.2026 // UTC+2 Deutschland
+      - UI: Brand-Block-HTML korrigiert; Icon steht links, Titel und Unterzeile rechts in einem Block.
+      - UI: Kamera-Icon im Header auf 3.5rem vergrößert.
+      - NEU: Nach erfolgreichem Panoramax-Upload wird zu https://panoramax.basi.re/your-pictures gewechselt.
+     0.1.80, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Beim Klick auf ein bereits gespeichertes Bild wird kein roter Drehrichtungs-Pfeil mehr angezeigt.
+      - UI: Der rote Drehrichtungsbogen wird gestrichelt gezeichnet, passend zum gelben Richtungskreis.
+     0.1.81, 11.5.2026 // UTC+2 Deutschland
+      - UI: Rote Pfeilspitze am Drehrichtungsbogen wird leicht zum Mittelpunkt versetzt, damit sie optisch nicht außen auf dem Kreis klebt.
+     0.1.82, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Rote Pfeilspitze wird wieder näher am Kreisbogen berechnet, damit sie nicht frei in der Karte steht.
+      - BUGFIX: Nach dem erneuten Speichern eines bereits gespeicherten Bildes wird wieder das nächste unbearbeitete Bild geladen.
+      - BUGFIX: saveImageToCache übernimmt die individuelle Bild-Blickrichtung statt erneut die Startblickrichtung zu schreiben.
+     0.1.83, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Panoramax-Token-Feld ist kein Passwortfeld mehr, damit der Browser keinen Webseiten-Login vorschlägt.
+      - NEU: Token ist beim Einfügen kurz sichtbar; nach „Token merken“ wird das Feld durch Punkte ersetzt und deaktiviert.
+      - NEU: Beim Löschen wird das Feld wieder als normales Textfeld aktiviert.
+     0.1.84, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Panoramax-Upload sendet die Bilddateien jetzt standardmäßig EXIF-basiert und ohne Zusatzfelder im Multipart-Request.
+      - BUGFIX: Upload-Set wird erst abgeschlossen, nachdem alle Dateien erfolgreich angenommen wurden.
+      - BUGFIX: Der Abschluss-Request wird ohne leeren JSON-Body gesendet.
+     0.1.85, 11.5.2026 // UTC+2 Deutschland
+      - UI: Rote Pfeilspitze wird pixelgenau auf Kreisradius minus 3 px gesetzt statt per Prozentwert.
+     0.1.86, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Rote Pfeilspitze nutzt nun ein eigenes zentriertes SVG statt Unicode-Zeichen; dadurch wandert der Pfeil beim Drehen nicht mehr.
+     0.1.87, 11.5.2026 // UTC+2 Deutschland
+      - UI: Nach Umstellung auf zentrierte SVG-Pfeilspitze wurde die zusätzliche 3-px-Innenverschiebung wieder entfernt.
+     0.1.88, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Nach erfolgreichem Datei-Transfer wird die Panoramax-Seite „Meine Bilder“ immer geöffnet.
+      - BUGFIX: Upload-Set-Abschluss versucht jetzt mehrere zulässige Varianten, falls die Instanz auf eine Variante mit 404/500 reagiert.
+     0.1.89, 11.5.2026 // UTC+2 Deutschland
+      - DATEN: zipcodes.json durch neu erstellte vollständige Ortsdatei ersetzt (16606 Datensätze).
+     0.1.90, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Panoramax-Upload verwendet jetzt sichere ASCII-Dateinamen ohne Leerzeichen/Sonderzeichen.
+      - NEU: Diagnosehinweis zu Panoramax-Frontendfehler forceInput ergänzt.
+     0.1.91, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Ortssuche versteht jetzt kombinierte Eingaben wie „99947 W“ und filtert innerhalb der PLZ nach Ortsnamen.
+      - NEU: Fehlende Ortskoordinaten werden ersatzweise über eine andere Koordinate derselben PLZ abgefangen.
+-->
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ═══════════════════════════════════════════
+       SEO – Grundlegende Meta-Angaben
+  ═══════════════════════════════════════════ -->
+
+  <meta name="license" content="CC BY 4.0" />
+  <link rel="license" href="https://creativecommons.org/licenses/by/4.0/deed.de" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://gabischatz.de.cool/FotoGeoTool/index.html" />
+
+  
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="shortcut icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <meta name="theme-color" content="#141622" />
+<meta name="author" content="Lutz Müller (gabischatz)" />
+  <meta name="description" content="Foto Geo-Tool: Fotos im Browser laden, GPS-Koordinaten aus EXIF lesen oder per Karte setzen, Aufnahmedatum, Beschreibung, Alternativtext und Panoramax-Tags ergänzen und Bilder mit Geodaten speichern." />
+  <meta name="keywords" content="Foto Geo-Tool, GeoImgr, Geotagging, Fotos geotaggen, EXIF, GPS, Bild GPS Koordinaten, Panoramax, OpenStreetMap, Alt-Text, Alternativtext, WhatsApp Bilder, JPG, JPEG, Koordinaten, Geodaten" />
+
+  <!-- ═══════════════════════════════════════════════
+       Open Graph – Vorschau in sozialen Netzwerken
+  ════════════════════════════════════════════════════ -->
+
+  <meta property="og:title" content="Foto Geo-Tool" />
+  <meta property="og:description" content="Fotos laden, GPS-Koordinaten aus EXIF lesen oder per Karte setzen, Aufnahmedatum, Beschreibung und Panoramax-Tags ergänzen und Bilder mit Geodaten speichern." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://gabischatz.de.cool/FotoGeoTool/index.html" />
+  <meta property="og:image" content="https://gabischatz.de.cool/FotoGeoTool/preview.png" />
+  <meta property="og:image:secure_url" content="https://gabischatz.de.cool/FotoGeoTool/preview.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:alt" content="Vorschau des Foto Geo-Tools mit Bildvorschau, Kartenansicht, EXIF-Metadaten und Panoramax-Vorbereitung" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="800" />
+  <meta property="og:locale" content="de_DE" />
+  <meta property="og:site_name" content="gabischatz.de.cool" />
+
+  <!-- ═══════════════════════════════════════════
+       Twitter Card – Vorschau auf X / Twitter
+  ════════════════════════════════════════════ -->
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Foto Geo-Tool" />
+  <meta name="twitter:description" content="Fotos laden, GPS/EXIF prüfen, Standort per Karte setzen, Alternativtext und Panoramax-Tags ergänzen und Bilder mit Geodaten speichern." />
+  <meta name="twitter:image" content="https://gabischatz.de.cool/FotoGeoTool/preview.png" />
+  <meta name="twitter:image:alt" content="Vorschau des Foto Geo-Tools mit Bildvorschau, Kartenansicht, EXIF-Metadaten und Panoramax-Vorbereitung" />
+
+  <title>Foto Geo-Tool — Fotos geotaggen, EXIF bearbeiten und Panoramax vorbereiten</title>
+
+  <!-- =====================================================
+       Externe Bibliotheken (CDN)
+       - Leaflet   : OpenStreetMap-Karte
+       - exif-js   : EXIF-Metadaten aus JPEG lesen
+       - piexifjs  : EXIF-Metadaten in JPEG schreiben
+       - JSZip     : ZIP-Archiv erstellen
+       - FileSaver : Dateien lokal speichern
+  ===================================================== -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="app-wrapper layout-grid">
+
+    <!-- Linke Spalte: Titel, Bedienung, Bilder -->
+    <section class="layout-column layout-left" aria-label="Bildauswahl und Bildliste">
+      <header class="app-header left-header">
+        <div class="brand-block">
+          <span>📸</span>
+          <div class="brand-text-block">
+            <a class="brand-title-link" href="https://gabischatz.de.cool/FotoGeoTool/index.html" title="Foto Geo-Tool neu laden">
+              <h1>Foto Geo-Tool</h1>
+            </a>
+            <p>EXIF auslesen · GPS auf Karte anzeigen · Standort setzen · Bild speichern</p>
+          </div>
+        </div>
+<!-- Button-Gruppe -->
+      <div class="header-buttons">
+        <a class="geo-action-btn secondary video-frame-tool-link" href="video-frame-extractor.html" title="Einzelbilder aus Videos extrahieren">🎞️ Video-Frames</a>
+        <button class="header-btn" onclick="showImageList()" title="Alle gespeicherten Bilder anzeigen">📋 Bild-Liste</button>
+        <button class="header-btn zip" onclick="downloadAsZip()" title="Alle Bilder als ZIP herunterladen (löscht Server-Bilder)">📦 ZIP Download</button>
+        <button class="header-btn upload" onclick="scrollToPanoramaxPanel()" title="Panoramax-Anmeldung und Upload anzeigen">☁️ Panoramax</button>
+        <button class="header-btn danger" onclick="clearAllCache()" title="Browser-Cache leeren (Position + Bild-Liste)">🗑️ Cache löschen</button>
+      </div>
+      </header>
+
+      <div class="left-column">
+        <div class="panel">
+          <div class="panel-title">📷 Bild auswählen</div>
+
+          <div id="drop-zone">
+            <input type="file" id="file-input" accept="image/*,video/*" multiple />
+            <span class="drop-icon">🖼️</span>
+            <p>Bild hierher ziehen oder <span>klicken</span></p>
+            <p style="margin-top:0.3rem; font-size:0.78rem;">JPEG, PNG, TIFF oder Video · EXIF wird automatisch ausgelesen</p>
+          </div>
+
+          <div id="preview-container">
+            <img id="preview-img" src="" alt="Vorschau" />
+            <div class="img-filename" id="filename-label"></div>
+            <button type="button" class="btn btn-ghost" onclick="resetFileSelection(event)">✕ Anderes Bild wählen</button>
+          </div>
+
+          <div id="video-source-box" class="video-source-box" style="display:none;">
+            <div class="video-source-topline">
+              <div class="video-source-title">🎬 Video geladen</div>
+              <div id="video-source-name" class="video-source-name">–</div>
+            </div>
+            <button id="openVideoFrameExtractorBtn" type="button" class="geo-action-btn secondary video-frame-tool-link" onclick="openIntegratedVideoFrameExtractor()">🎞️ Fotoframeextraktor</button>
+          </div>
+        </div>
+
+        <div class="image-list-select-row">
+          <label for="savedImageSelect">Bilder-Liste</label>
+          <select id="savedImageSelect" title="Gespeichertes Bild laden">
+            <option value="">Noch keine unbearbeiteten Bilder</option>
+          </select>
+        </div>
+
+        <div class="panel" id="transport-section" style="display:none;">
+          <div class="entry-transport-editor">
+            <div class="entry-label">🚕
+              <span class="panel-title">Fortbewegungsart bearbeiten <span class="info-dot" title="Wähle das Transportmittel aus, das du benutzt hast, um die Fotos aufzunehmen. Es wird als Tag zu deinen Fotos hinzugefügt.">ⓘ</span></span>
+            </div>
+            <div class="transport-buttons-wrapper" role="group" aria-label="Fortbewegungsart auswählen">
+              <button type="button" class="transport-select-button" data-transport-tag="transport=other" data-transport-label="Andere">❓<span>Andere</span></button>
+              <button type="button" class="transport-select-button" data-transport-tag="transport=car" data-transport-label="Auto">🚗<span>Auto</span></button>
+              <button type="button" class="transport-select-button" data-transport-tag="transport=bike" data-transport-label="Fahrrad">🚲<span>Fahrrad</span></button>
+              <button type="button" class="transport-select-button button-selected" data-transport-tag="transport=walk" data-transport-label="Zu Fuß">🚶<span>Zu Fuß</span></button>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Bild-Liste für gespeicherte Bilder -->
+        <div class="panel" id="image-list-panel" style="display: none;">
+          <div class="panel-title">📁 Gespeicherte Bilder <span id="image-count-badge" style="margin-left:0.5rem;"></span></div>
+          <div id="saved-images-list" class="image-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rechte Spalte: Standort, Karte, Geo-Editor -->
+    <section class="layout-column layout-right" aria-label="Standort und Bearbeitung">
+      <header class="right-header">
+        <div class="header-right-box">
+          <div class="top-location-bar">
+            <span id="metaDisplay" class="top-location-status" title="Klicken, um einen Ort oder eine PLZ zu suchen">📍 Standort laden …</span>
+          </div>
+          <a class="help-btn" href="hilfe.html" title="Hilfe öffnen">❓ Hilfe</a>
+        </div>
+      </header>
+
+      <div class="panel" id="map-panel">
+        <div class="panel-title">🗺️ Standort</div>
+
+        <div id="zip-status" class="loading-hint" style="display:none;">⏳ Ortsdaten werden geladen …</div>
+
+        <div class="map-shell">
+          <div id="locationSearchPanel" class="location-search-panel" aria-label="Ort suchen">
+            <input id="locationSearchInput" type="search" placeholder="Ort oder PLZ eingeben, z. B. Mühlhausen oder 99974" autocomplete="off" />
+            <button id="locationSearchBtn" class="search" type="button">Suchen</button>
+            <button id="locationSearchCloseBtn" type="button" title="Schließen">✕</button>
+            <div id="locationSearchResults" class="location-search-results"></div>
+          </div>
+
+          <div id="map"></div>
+        </div>
+
+        <p class="map-hint">📌 Marker verschieben · Rechtsklick → Standort setzen · Klick auf Richtungskreis → Blickrichtung setzen · Video-Drehbereich max. 45°</p>
+
+        <div id="coords-display" class="coords-hidden" aria-live="polite">
+          <div class="coords-label">Aktuelle Koordinaten</div>
+          <div class="coords-value" id="coords-text">– noch kein Standort gesetzt –</div>
+        </div>
+
+        <div id="direction-display" class="coords-hidden direction-display" aria-live="polite">
+          <div class="coords-label">Blickrichtung / Drehung</div>
+          <div class="coords-value" id="direction-text">– noch keine Blickrichtung gesetzt –</div>
+        </div>
+
+        <div id="altitude-display" class="coords-hidden altitude-display" aria-live="polite">
+          <div class="coords-label">Höhe</div>
+          <div class="coords-value" id="altitude-text">– noch nicht ermittelt –</div>
+        </div>
+
+
+
+        <div id="geoEditorPanel" class="geo-editor-panel" aria-live="polite">
+          <div class="geo-editor-thumb-wrap">
+            <img id="geoEditorThumb" src="" alt="Ausgewähltes Bild" />
+          </div>
+
+          <div class="geo-editor-main">
+            <div class="geo-editor-fields">
+              <div class="geo-field-block">
+                <label for="existingGeotagsInput">Existing Geotags <button id="showExistingGeotagsBtn" class="inline-link-btn" type="button">show</button></label>
+                <input id="existingGeotagsInput" type="text" readonly />
+
+                <label for="newGeotagsInput">New Geotags</label>
+                <input id="newGeotagsInput" type="text" readonly />
+              </div>
+
+              <div class="geo-field-block">
+                <label for="keywordsInput">Keywords and Tags </label>
+                <input id="keywordsInput" type="text" title="Exif.Image.DocumentName" />
+
+                <label for="descriptionOpenBtn">Description / Alternative Text</label>
+                <div class="description-compact-row">
+                  <button id="restoreDescriptionBtn" class="description-side-btn compact" type="button" title="Letzten Alternativtext wieder einfügen">＋</button>
+                  <button id="descriptionOpenBtn" class="description-display-input" type="button" title="Alternativtext bearbeiten">
+                    <span id="descriptionDisplayText">Beschreibung / Alternativtext …</span>
+                  </button>
+                  <button id="insertCopyrightBtn" class="description-side-btn compact" type="button" title="Gespeicherten Copyright-Namen einfügen">@</button>
+                  <button id="descriptionLensBtn" class="description-side-btn compact lens" type="button" title="Alt-Text per Google Lens vorbereiten">🔍</button>
+                </div>
+                <textarea id="descriptionInput" rows="1" title="Exif.Image.Description" hidden></textarea>
+              </div>
+            </div>
+
+            <div class="geo-editor-actions">
+              <button id="writeExifBtn" class="geo-action-btn primary" type="button">💾 Speichern</button>
+              <button id="downloadCurrentBtn" class="geo-action-btn download" type="button">⬇️ Download</button>
+              
+              <button id="clearGeoEditorBtn" class="geo-action-btn clear" type="button">🧽 Clear</button>
+            </div>
+          </div>
+
+          <div id="geoEditorFilename" class="geo-editor-filename">–</div>
+        </div>
+
+        <div class="panel panoramax-auth-panel" id="panoramaxAuthPanel">
+          <div class="panoramax-auth-head">
+            <img src="https://panoramax.basi.re/assets/logo-BObNqDTO.png" alt="Panoramax" class="panoramax-auth-logo" />
+            <div>
+              <div class="panel-title">Anmeldung Panoramax</div>
+              <div class="panoramax-auth-subtitle">Token dauerhaft in diesem Browser speichern oder serverseitig in panoramax_config.php hinterlegen.</div>
+            </div>
+          </div>
+
+          <div class="panoramax-token-row">
+            <input id="panoramaxTokenInput" type="text" name="panoramax_token_plain" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" data-lpignore="true" data-1p-ignore="true" data-form-type="other" placeholder="Token einfügen..." />
+            <button id="panoramaxSaveTokenBtn" type="button" class="geo-action-btn primary">🔐 Token merken</button>
+            <button id="panoramaxForgetTokenBtn" type="button" class="geo-action-btn clear">🗑️ Löschen</button>
+          </div>
+
+          <div class="panoramax-auth-actions">
+            <a class="panoramax-link-btn" href="https://panoramax.basi.re/your-pictures" target="_blank" rel="noopener">Meine Bilder</a>
+            <button id="panoramaxUploadBtn" type="button" class="panoramax-link-btn panoramax-upload-inline" disabled aria-disabled="true" title="Bitte zuerst einen Token speichern">☁️ Upload starten</button>
+            <a id="panoramaxTokenGenerateBtn" class="panoramax-link-btn panoramax-token-generate" href="https://panoramax.basi.re/account" target="_blank" rel="noopener">🗝️ Token generieren</a>
+          </div>
+
+          <div id="panoramaxAuthStatus" class="panoramax-auth-status">Noch kein Token im Browser gespeichert.</div>
+        </div>
+
+        <div class="panel right-meta-panel" id="meta-section">
+          <div class="panel-title">📋 Metadaten</div>
+          <div id="status-box" class="status-box"></div>
+
+          <div class="meta-row">
+            <span class="meta-label">Aufnahmedatum</span>
+            <input type="datetime-local" id="date-input" />
+          </div>
+
+          <div class="meta-row" id="date-source-row" style="display:none;">
+            <span class="meta-label">Datum ermittelt aus</span>
+            <span class="meta-value" id="date-source-value">–</span>
+          </div>
+
+          <div class="meta-row" id="gps-row" style="display:none;">
+            <span class="meta-label">GPS (EXIF)</span>
+            <span class="meta-value" id="gps-exif-value">–</span>
+          </div>
+
+          
+          <div class="meta-row" id="altitude-row" style="display:none;">
+            <span class="meta-label">Höhe (EXIF)</span>
+            <span class="meta-value" id="altitude-meta-value">–</span>
+          </div>
+
+          <div class="meta-row" id="direction-row" style="display:none;">
+            <span class="meta-label">Blickrichtung (EXIF)</span>
+            <span class="meta-value" id="direction-meta-value">–</span>
+          </div>
+<div class="meta-row" id="camera-row" style="display:none;">
+            <span class="meta-label">Kamera</span>
+            <span class="meta-value" id="camera-value">–</span>
+          </div>
+
+          <div class="meta-row" id="description-meta-row" style="display:none;">
+            <span class="meta-label">Beschreibung</span>
+            <span class="meta-value meta-description-value" id="description-meta-value">–</span>
+          </div>
+
+          <div class="meta-row" id="res-row" style="display:none;">
+            <span class="meta-label">Auflösung</span>
+            <span class="meta-value" id="res-value">–</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+  <script src="script.js" defer></script>
+
+  <dialog id="descriptionDialog" class="description-dialog">
+    <form method="dialog" class="description-dialog-box">
+      <div class="description-dialog-head" id="descriptionDialogDragHandle" title="Dialog mit der Maus verschieben">
+        <strong>Beschreibung / Alternativtext bearbeiten</strong>
+        <button id="descriptionDialogCloseBtn" class="description-dialog-close" type="button" title="Schließen">✕</button>
+      </div>
+
+      <div class="description-dialog-actions">
+        <button id="descriptionDialogRestoreBtn" type="button" class="description-dialog-tool">＋ Letzten Text</button>
+        <button id="descriptionDialogCopyrightBtn" type="button" class="description-dialog-tool">@ Copyright</button>
+        <button id="descriptionDialogLensBtn" type="button" class="description-dialog-tool lens">🔍 Alt-Text holen</button>
+      </div>
+
+      <textarea id="descriptionDialogTextarea" class="description-dialog-textarea" rows="5" placeholder="Beschreibung / Alternativtext …"></textarea>
+
+      <div class="description-dialog-footer">
+        <button id="descriptionDialogSaveBtn" type="button" class="description-dialog-save">Speichern</button>
+        <button id="descriptionDialogCancelBtn" type="button" class="description-dialog-cancel">Abbrechen</button>
+      </div>
+    </form>
+  </dialog>
+
+
+    <!-- Integrierter Video-Frame-Extractor -->
+    <div id="videoFrameExtractorOverlay" class="video-frame-overlay" style="display:none;" role="dialog" aria-modal="false" aria-label="Fotoframeextraktor">
+      <div class="video-frame-dialog">
+        <div class="video-frame-head">
+          <div>
+            <div class="panel-title">🎞️ Fotoframeextraktor <span id="integratedVideoNameTop" class="video-frame-title-name">–</span></div>
+            <div class="video-frame-subtitle">Video wird aus der Hauptseite übernommen. GPS kann sofort übernommen oder später beim Speichern der Einzelbilder gesetzt werden.</div>
+          </div>
+          <button type="button" class="video-frame-close" onclick="closeIntegratedVideoFrameExtractor()">✕</button>
+        </div>
+
+        <div class="video-frame-grid">
+          <div class="video-frame-preview">
+            <video id="integratedVideoPreview" controls preload="metadata"></video>
+            <div class="video-frame-info">
+              <span id="integratedVideoName">–</span>
+              <span id="integratedVideoMeta">–</span>
+            </div>
+
+            <div class="video-frame-left-tools">
+              <label class="video-frame-description-label">Beschreibung für alle Frames
+                <textarea id="videoFrameDescription" rows="1" placeholder="Beschreibung / Alternativtext für alle extrahierten Bilder"></textarea>
+              </label>
+
+              <div class="video-frame-series-hint">Serie: Beschreibung und GEO-Position gelten für alle aus diesem Video erzeugten Bilder.</div>
+
+              <div id="videoFrameProgress" class="video-frame-progress">Noch nicht gestartet.</div>
+
+              <div id="videoFrameLeftStatus" class="video-frame-left-status">Nach der Extraktion kannst du einzelne Bilder per Klick auf das Vorschaubild auslassen.</div>
+            </div>
+          </div>
+
+          <div class="video-frame-settings">
+            <label>Intervall in Sekunden
+              <input id="videoFrameInterval" type="number" min="0.1" step="0.1" value="1">
+            </label>
+            <label>Gewünschte Frames
+              <input id="videoFrameMax" type="number" min="1" step="1" value="30">
+            </label>
+            <label>JPEG-Qualität
+              <input id="videoFrameQuality" type="number" min="50" max="100" step="1" value="92">
+            </label>
+            <label>Höhe in Metern optional
+              <input id="videoFrameAltitude" type="number" step="1" placeholder="optional">
+            </label>
+            <div class="video-frame-current">
+              <div>📍 <span id="videoFrameCoordsDisplay">Koordinaten noch nicht gesetzt</span></div>
+              <div>🕒 <span id="videoFrameDateDisplay">Datum noch nicht gesetzt</span></div>
+            </div>
+            <div class="video-frame-actions">
+              <button id="videoFrameExtractBtn" type="button" class="geo-action-btn primary" onclick="extractFramesFromIntegratedVideo()">▶ Frames extrahieren</button>
+              <button id="videoFrameTransferBtn" type="button" class="geo-action-btn download" onclick="transferVideoFramesToFotoGeoTool()" disabled>↩ FotoGeo-Tool</button>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="videoFrameStrip" class="video-frame-strip"></div>
+      </div>
+    </div>
+
+</body>
+</html>
