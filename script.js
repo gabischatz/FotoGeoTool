@@ -1,6 +1,6 @@
 /**
  * Projekt: Foto Geo-Tool
- * Datei: https://gabischatz.de.cool/FotoGeoTool/script.js
+ * Datei: https://overpass-osm.de.cool/FotoGeoTool/script.js
  * Autor: Lutz Müller
  * Programmiersprache: JavaScript
  *
@@ -252,6 +252,17 @@
      0.1.91, 11.5.2026 // UTC+2 Deutschland
       - BUGFIX: findZipResults arbeitet tokenbasiert; PLZ + Anfangsbuchstaben findet jetzt z. B. 99947 Waldstedt.
       - NEU: getZipLat/getZipLng nutzt Koordinaten-Fallback aus gleicher PLZ, wenn einzelne Einträge leere Koordinaten haben.
+     0.1.92, 11.5.2026 // UTC+2 Deutschland
+      - DIAGNOSE: Panoramax-Status zeigt jetzt upload_files_url und upload_set_id aus der PHP-Antwort.
+     0.1.93, 11.5.2026 // UTC+2 Deutschland
+      - DIAGNOSE: Statusmeldung unterscheidet jetzt angenommene, abgelehnte und fehlgeschlagene Dateien.
+     0.1.95, 14.5.2026 // UTC+2 Deutschland
+      - Panoramax-Upload arbeitet mit neuer panoramax_upload.php v0.1.95; Metadaten werden serverseitig als API-Overrides gesendet.
+     0.1.96, 14.5.2026 // UTC+2 Deutschland
+      - Version zu Panoramax-JPEG-Härtung synchronisiert.
+     0.1.97, 15.5.2026 // UTC+2 Deutschland
+      - BEREINIGUNG: PHP_SERVER_URL ist jetzt dynamisch relativ zum aktuellen Ordner; dadurch kann FotoGeoTool in beliebigen Ordnern laufen.
+      - BEREINIGUNG: feste gabischatz-Links durch overpass-osm-Ziel bzw. relative Basis ersetzt.
  */
 
 // =====================================================
@@ -302,7 +313,7 @@
     const STORAGE_ELEVATION_CACHE_KEY = 'foto_geo_tool_elevation_cache_v1';
 
     // Lokale PHP-Endpunkte
-    const PHP_SERVER_URL = 'https://gabischatz.de.cool/FotoGeoTool/';
+    const PHP_SERVER_URL = new URL('./', window.location.href).href;
     const PANORAMAX_YOUR_PICTURES_URL = 'https://panoramax.basi.re/your-pictures';
 
     function goToPanoramaxYourPictures(delayMs = 900) {
@@ -428,6 +439,98 @@
         lng: ((toDeg(lng2) + 540) % 360) - 180
       };
     }
+
+
+    function parsePanoramaPresetFromUrl() {
+      const params = new URLSearchParams(window.location.search || '');
+      let raw = params.get('q') || params.get('panorama') || '';
+      raw = String(raw || '').trim();
+
+      let parts = raw
+        ? raw.split(',').map(part => decodeURIComponent(part).trim()).filter(Boolean)
+        : [];
+
+      // Zusätzlich direkte Parameter erlauben:
+      // ?lat=51.109790&lng=10.636210&heading=51&rotation=right
+      if (parts.length < 3 && params.has('lat') && params.has('lng')) {
+        parts = [
+          params.get('lat'),
+          params.get('lng'),
+          params.get('heading') || params.get('bearing') || params.get('start') || '',
+          params.get('rotation') || params.get('direction') || params.get('turn') || ''
+        ].map(part => String(part || '').trim()).filter(Boolean);
+      }
+
+      if (parts.length < 2) return null;
+
+      const lat = Number(String(parts[0]).replace(',', '.'));
+      const lng = Number(String(parts[1]).replace(',', '.'));
+      const startBearing = normalizeBearing(Number(String(parts[2] || 0).replace(',', '.')));
+      const rotationRaw = String(parts[3] || 'right').toLowerCase();
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+      if (!Number.isFinite(startBearing)) return null;
+
+      const rotationSign = /^(left|links|l|ccw|gegen|gegen-uhr|gegen_den_uhrzeigersinn)/i.test(rotationRaw) ? -1 : 1;
+      const rotationLabel = rotationSign < 0 ? 'links' : 'rechts';
+
+      return {
+        lat,
+        lng,
+        startBearing,
+        rotationSign,
+        rotationLabel,
+        source: raw || `${lat},${lng},${startBearing},${rotationLabel}`
+      };
+    }
+
+    function applyPanoramaPresetFromUrl() {
+      const preset = parsePanoramaPresetFromUrl();
+      if (!preset) return false;
+
+      if (!ensureMapReady()) return false;
+
+      // Der Link kommt vom Geopositionstool und beschreibt ein Panoramavideo.
+      // Darum wird der Drehbereich schon vor dem Laden des Videos aktiviert.
+      currentDirectionRangeEnabled = true;
+      suppressDirectionRangeVisual = false;
+
+      setMarker(preset.lat, preset.lng, 'Panoramavideo Position', true);
+
+      // Bestehende Richtungsmarker aus alten Sitzungen dürfen den Link nicht überlagern.
+      if (map) {
+        directionMarkers.forEach(m => map.removeLayer(m));
+        directionLines.forEach(l => map.removeLayer(l));
+        if (directionCircle) map.removeLayer(directionCircle);
+        if (directionArcLayer) map.removeLayer(directionArcLayer);
+        if (directionArrowMarker) map.removeLayer(directionArrowMarker);
+      }
+      directionMarkers = [];
+      directionLines = [];
+      directionCircle = null;
+      directionArcLayer = null;
+      directionArrowMarker = null;
+      currentDirectionInfo = null;
+
+      const radius = DIRECTION_CIRCLE_DEFAULT_RADIUS_M;
+      const startPoint = destinationPointFromBearing(currentCoords, preset.startBearing, radius);
+      const endBearing = normalizeBearing(preset.startBearing + preset.rotationSign * MAX_DIRECTION_DELTA_DEG);
+      const endPoint = destinationPointFromBearing(currentCoords, endBearing, radius);
+
+      addDirectionMarker(startPoint.lat, startPoint.lng, false);
+      addDirectionMarker(endPoint.lat, endPoint.lng, false);
+      saveDirectionMarkersToCache();
+      renderDirectionOverlay();
+
+      showStatus(
+        `📍 Panoramavideo-Position aus Link übernommen: ${preset.lat.toFixed(6)}, ${preset.lng.toFixed(6)} · Start ${preset.startBearing.toFixed(1)}° · ${preset.rotationLabel}herum. Ziehe jetzt nur noch das Video auf die Eingabefläche.`,
+        'success'
+      );
+
+      return true;
+    }
+
 
     function getDirectionCircleRadius() {
       if (!currentCoords || !directionMarkers[0]) return DIRECTION_CIRCLE_DEFAULT_RADIUS_M;
@@ -1811,10 +1914,15 @@
           if (!completeOk) {
             console.warn('Panoramax Upload wurde gesendet, aber der Abschluss meldet ein Problem:', result);
           }
+          const countInfo = typeof result.uploaded_count === 'number'
+            ? ` · angenommen: ${result.uploaded_count}/${result.images_count || '?'}`
+            : '';
+          const failInfo = result.failed_count ? ` · Uploadfehler: ${result.failed_count}` : '';
+          const rejectedInfo = result.rejected_count ? ` · Panoramax abgelehnt: ${result.rejected_count}` : '';
           const note = completeOk
             ? 'Upload wurde per API übertragen und abgeschlossen. Auf der Panoramax-Seite bitte nicht noch einmal per Drag-and-Drop hochladen.'
             : 'Upload wurde per API übertragen; Panoramax hat den Abschluss nicht eindeutig bestätigt. Auf der Panoramax-Seite bitte nicht noch einmal per Drag-and-Drop hochladen.';
-          showStatus(`☁️ ${note}${setInfo} · Wechsel zu <a href="${PANORAMAX_YOUR_PICTURES_URL}" target="_self" rel="noopener">Panoramax „Meine Bilder“</a> …`, completeOk ? 'success' : 'warn');
+          showStatus(`☁️ ${note}${setInfo}${countInfo}${failInfo}${rejectedInfo} · Wechsel zu <a href="${PANORAMAX_YOUR_PICTURES_URL}" target="_self" rel="noopener">Panoramax „Meine Bilder“</a> …`, (completeOk && !result.failed_count && !result.rejected_count) ? 'success' : 'warn');
           goToPanoramaxYourPictures(900);
         } else {
           const detail = result.message || result.error || result.diagnostic || 'Unbekannter Fehler.';
@@ -4342,8 +4450,11 @@ async function writeExifTagsForCurrentImage() {
     bindPanoramaxAuthPanel();
     ensureMapReady();
     loadZipData();
-    startWithCurrentLocation();
-    window.setTimeout(loadDirectionMarkersFromCache, 300);
+    const panoramaPresetApplied = applyPanoramaPresetFromUrl();
+    if (!panoramaPresetApplied) {
+      startWithCurrentLocation();
+      window.setTimeout(loadDirectionMarkersFromCache, 300);
+    }
     updateImageListDisplay();
 
 

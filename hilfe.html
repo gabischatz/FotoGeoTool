@@ -9,7 +9,7 @@
 <meta name="robots" content="index, follow">
 <meta name="license" content="CC BY 4.0">
 <link rel="license" href="https://creativecommons.org/licenses/by/4.0/deed.de">
-<link rel="canonical" href="https://gabischatz.de.cool/FotoGeoTool/hilfe.html">
+<link rel="canonical" href="https://overpass-osm.de.cool/FotoGeoTool/hilfe.html">
 <title>FotoGeo-Tool Hilfe – Anleitung und Videoskript</title>
 <style>
 :root {
@@ -454,7 +454,9 @@ footer {
     </footer>
   </main>
 
-<!-- v0.1.75: icon.svg/Favicon im Hauptdokument ergänzt. -->
+<!-- v0.1.75: icon.svg/Favicon im Hauptdokument ergänzt.      0.1.97, 15.5.2026 // UTC+2 Deutschland
+      - BEREINIGUNG: Canonical/Links auf overpass-osm.de.cool aktualisiert.
+-->
 
 <p><strong>Panoramax-Upload ab v0.1.76:</strong> Der Upload läuft nicht mehr über <code>panoramax_cli</code>, sondern direkt über die Panoramax-HTTP-API. Beim Hochladen werden die GPS-Koordinaten und das Aufnahmedatum zusätzlich als API-Override mitgesendet. Dadurch ist der Upload weniger empfindlich gegenüber beschädigten oder ungewöhnlichen EXIF-Blöcken. Wenn Panoramax eine Datei ablehnt, gibt die App nun die Upload-Set-ID und die Diagnose von <code>/api/upload_sets/&lt;id&gt;/files</code> in der Browser-Konsole aus.</p>
 
@@ -489,5 +491,7 @@ footer {
 <p><strong>Ortsdaten ab v0.1.89:</strong> Die Ortssuche verwendet jetzt die neu erstellte vollständige Ortsdatei mit 16606 Datensätzen. Falls alte Ortsvorschläge angezeigt werden, bitte den Browser-Cache leeren oder die Seite hart neu laden.</p>
 <p><strong>Panoramax-Upload ab v0.1.90:</strong> Die Bilder werden beim direkten API-Upload mit sicheren Dateinamen an Panoramax gesendet. Leerzeichen, Kommas, Umlaute und Sonderzeichen werden entfernt. Die Panoramax-Seite <code>/your-pictures</code> dient danach nur zur Kontrolle; dort bitte nicht noch einmal per Drag-and-Drop hochladen.</p>
 <p><strong>Ortssuche ab v0.1.91:</strong> Kombinierte Eingaben wie <code>99947 W</code> funktionieren jetzt. Die Suche trennt PLZ und Ortsnamenanteile. Orte mit fehlenden eigenen Koordinaten werden trotzdem angezeigt; falls möglich, wird ersatzweise eine vorhandene Koordinate aus derselben PLZ verwendet und als PLZ-Koordinate markiert.</p>
+<p><strong>Panoramax-Upload ab v0.1.92:</strong> Die Upload-Set-ID wird jetzt robust aus der Panoramax-Antwort oder aus dem <code>add_files</code>-Link gelesen. Dadurch kann keine fehlerhafte URL wie <code>/api/upload_sets//files</code> mehr entstehen. Wenn in der Konsole weiterhin diese URL erscheint, läuft noch eine alte <code>panoramax_upload.php</code> auf dem Server.</p>
+<p><strong>Panoramax-Upload ab v0.1.93:</strong> Wenn Panoramax einzelne Dateien ablehnt, bricht das Foto Geo-Tool nicht mehr sofort ab. Alle Dateien werden versucht, das Upload-Set wird anschließend abgeschlossen und die Panoramax-Diagnose wird abgefragt. Die genaue Ursache steht danach in der Browser-Konsole unter <code>Panoramax PHP Antwort</code>, besonders bei <code>upload_errors</code>, <code>files_diagnostic</code> und <code>final_set_status</code>.</p>
 </body>
 </html>

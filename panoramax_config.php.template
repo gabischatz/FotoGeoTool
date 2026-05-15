@@ -1,37 +1,66 @@
 <?php
 /**
  * Projekt: Foto Geo-Tool
- * Datei: https://gabischatz.de.cool/FotoGeoTool/panoramax_config.php.template
+ * Datei: https://overpass-osm.de.cool/FotoGeoTool/panoramax_config.php.template
  * Autor: Lutz Müller
  * Programmiersprache: PHP
  *
  * Cronik:
  *   Version-Datum:
- *     0.1.8, 7.5.2026, 20:25:00 // UTC+2 Deutschland
- *      - Vorlage für serverseitigen Panoramax-Token und CLI-Pfad
+ *     0.1.19, 7.5.2026 // UTC+2 Deutschland
+ *      - Konfigurationsdatei für serverseitigen Panoramax-Upload erstellt.
  *
- * Anwendung:
- *   1. Diese Datei auf dem Server kopieren nach: panoramax_config.php
- *   2. Neuen Panoramax-Token eintragen.
- *   3. Pfad zur panoramax_cli prüfen.
+ *     0.1.96, 14.5.2026 // UTC+2 Deutschland
+ *      - Standard sanitize_before_upload=true, damit Panoramax garantiert reine JPEG-Dateien bekommt.
+ *
+ *     0.1.97, 15.5.2026 // UTC+2 Deutschland
+ *      - Serverpfad/Dateikopf auf overpass-osm.de.cool aktualisiert.
+ *      - Konfigurationsdatei mit der aktuellen Upload-API-Struktur bereinigt.
  *
  * WICHTIG:
- *   Token niemals in index.html oder script.js speichern.
+ * - Diese Datei NICHT öffentlich verlinken.
+ * - Diese Vorlage darf ins GitHub-Repository. Die echte panoramax_config.php mit Token nicht veröffentlichen.
+ * - Den Token nicht in script.js speichern.
  */
+
 return [
-    // Für panoramax.basi.re ist die API-URL in der Regel diese Adresse:
+    // API-Endpunkt der Panoramax-Instanz
     'api_url' => 'https://panoramax.basi.re/api',
 
-    // Hier einen NEU erzeugten Token eintragen.
-    // Der im Chat/Screenshot sichtbare Token sollte gelöscht und ersetzt werden.
-    'token' => 'HIER_NEUEN_TOKEN_EINTRAGEN',
+    // Hier den neu erzeugten Panoramax-Token eintragen.
+    // Beispiel:
+    // 'token' => 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9....',
+    'token' => '',
 
-    // Entweder nur der Befehl, wenn er im PATH liegt, oder absoluter Pfad.
-    // Beispiele:
-    // 'panoramax_cli'
-    // '/usr/local/bin/panoramax_cli'
-    'panoramax_cli' => 'panoramax_cli',
+    // Pfad zur Panoramax-CLI auf deinem Server.
+    // Wird bei upload_method=direct_api normalerweise nicht benötigt.
+    'cli_bin' => 'panoramax_cli',
 
-    // Optionaler Titel der hochgeladenen Sequenz/Sammlung.
-    'title' => 'Foto Geo-Tool Upload'
+    // Upload-Ordner relativ zu FotoGeoTool.
+    // Muss zu upload.php / panoramax_upload.php passen.
+    'upload_dir' => __DIR__ . '/uploads',
+
+    // Upload-Methode: direct_api nutzt die HTTP-API direkt.
+    // cli ist nur noch ein alter Fallback.
+    'upload_method' => 'direct_api',
+
+    // JPEG vor dem Panoramax-Upload serverseitig neu schreiben.
+    // Das entfernt problematische EXIF-Blöcke.
+    // GPS/Datum werden danach per API-Override gesetzt.
+    'sanitize_before_upload' => true,
+
+    // Upload-Set nach erfolgreichem Hochladen abschließen.
+    'complete_after_upload' => true,
+
+    // Standard: api_overrides.
+    // Panoramax bekommt GPS/Zeit explizit als Multipart-Felder.
+    // Fallback/Testmodus: exif_only sendet nur file=@bild.jpg.
+    'upload_metadata_mode' => 'api_overrides',
+
+    // Optionaler Test: extra_exif mit Richtung/Höhe/Beschreibung mitschicken.
+    // Standard false, weil noch geprüft werden muss, wie die Instanz multipart/object genau erwartet.
+    'upload_extra_exif' => false,
+
+    // Optional: Timeout für Upload-Prozess in Sekunden
+    'timeout' => 600,
 ];

@@ -1,7 +1,7 @@
 <?php
 /**
  * Projekt: Foto Geo-Tool
- * Datei: https://gabischatz.de.cool/FotoGeoTool/upload.php
+ * Datei: https://overpass-osm.de.cool/FotoGeoTool/upload.php
  * Autor: Lutz Müller
  * Programmiersprache: PHP
  *
@@ -13,6 +13,8 @@
  *      - Keywords, Beschreibung und Fortbewegungsart werden in die JSON-Metadaten geschrieben
      0.1.29, 8.5.2026 // UTC+2 Deutschland
       - Rückgabe einer öffentlichen Bild-URL für Google-Lens-Test ergänzt.
+     0.1.97, 15.5.2026 // UTC+2 Deutschland
+      - BEREINIGUNG: Dateikopf/Fallback-Host auf overpass-osm.de.cool aktualisiert.
  */
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -35,7 +37,7 @@ function public_base_url(): string {
         || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
     $scheme = $https ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'gabischatz.de.cool';
+    $host = $_SERVER['HTTP_HOST'] ?? 'overpass-osm.de.cool';
     $dir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/FotoGeoTool/upload.php')), '/');
 
     return $scheme . '://' . $host . ($dir === '' ? '' : $dir);

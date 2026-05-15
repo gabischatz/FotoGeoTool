@@ -1,7 +1,7 @@
 <?php
 /**
  * Projekt: Foto Geo-Tool
- * Datei: https://gabischatz.de.cool/FotoGeoTool/delete.php
+ * Datei: https://overpass-osm.de.cool/FotoGeoTool/delete.php
  * Autor: Lutz Müller
  * Programmiersprache: PHP
  *
@@ -9,6 +9,8 @@
  *   Version-Datum:
  *     0.0.1, 2.5.2026, 11:46:01 // UTC+2 Deutschland
  *      - Datei erstellt
+     0.1.97, 15.5.2026 // UTC+2 Deutschland
+      - BEREINIGUNG: Dateikopf auf overpass-osm.de.cool aktualisiert.
  */
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');

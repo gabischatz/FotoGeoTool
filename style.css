@@ -1,6 +1,6 @@
 /**
  * Projekt: Foto Geo-Tool
- * Datei: https://gabischatz.de.cool/FotoGeoTool/style.css
+ * Datei: https://overpass-osm.de.cool/FotoGeoTool/style.css
  * Autor: Lutz Müller
  * Programmiersprache: CSS
  *
@@ -210,6 +210,18 @@
       - Keine Layout-Änderung; Upload-Dateinamen werden serverseitig normalisiert.
      0.1.91, 11.5.2026 // UTC+2 Deutschland
       - UI: Ortssuche zeigt bei Fallback-Koordinaten einen kleinen Hinweis.
+     0.1.92, 11.5.2026 // UTC+2 Deutschland
+      - Keine Layout-Änderung; Panoramax-Upload-ID-Fix in PHP.
+     0.1.93, 11.5.2026 // UTC+2 Deutschland
+      - Keine Layout-Änderung; Panoramax-Upload-Diagnose in PHP/JS erweitert.
+     0.1.94, 14.5.2026 // UTC+2 Deutschland
+      - Versionseintrag für FotoGeoTool-Linkparameter ergänzt; keine CSS-Layoutänderung.
+     0.1.95, 14.5.2026 // UTC+2 Deutschland
+      - Keine Layoutänderung; Versionsstand v0.1.95.
+     0.1.96, 14.5.2026 // UTC+2 Deutschland
+      - Version zu Panoramax-JPEG-Härtung synchronisiert.
+     0.1.97, 15.5.2026 // UTC+2 Deutschland
+      - BEREINIGUNG: Dateikopf/Verweise auf overpass-osm.de.cool aktualisiert; keine Layoutänderung.
  */
 
 :root {

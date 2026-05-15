@@ -1,7 +1,7 @@
 <?php
 /**
  * Projekt: Foto Geo-Tool
- * Datei: https://gabischatz.de.cool/FotoGeoTool/panoramax_upload.php
+ * Datei: https://overpass-osm.de.cool/FotoGeoTool/panoramax_upload.php
  * Autor: Lutz Müller
  * Programmiersprache: PHP
  *
@@ -36,6 +36,26 @@
      0.1.90, 11.5.2026 // UTC+2 Deutschland
       - BUGFIX: Dateien werden für den Panoramax-API-Upload mit stabilen Namen wie fotogeo_2026-05-09_165300_frame_0001.jpg gesendet.
       - NEU: Originaldateiname bleibt in der Diagnose erhalten.
+     0.1.92, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Upload-Set-ID wird robust aus id/upload_set_id oder aus HATEOAS-Links extrahiert.
+      - BUGFIX: Datei-Upload wird mit rel=add_files-Link ausgeführt, falls Panoramax diesen liefert.
+      - BUGFIX: Harte Sperre verhindert POST /api/upload_sets//files.
+      - BUGFIX: Complete wird mit rel=complete-Link ausgeführt, falls vorhanden.
+     0.1.93, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Datei-Upload läuft nach einzelnen Panoramax-Ablehnungen weiter und schließt das Upload-Set trotzdem ab.
+      - DIAGNOSE: upload_errors, uploaded_files, rejected_count und final_set_status ergänzt.
+      - BUGFIX: pg_http_json liest Header/Location, damit Upload-Set-ID gemäß Panoramax-Doku auch aus Location genutzt werden kann.
+     0.1.95, 14.5.2026 // UTC+2 Deutschland
+      - WICHTIG: Standardmodus wieder upload_metadata_mode=api_overrides nach Prüfung der Panoramax-OpenAPI.
+      - NEU: Beim Datei-Upload werden override_latitude, override_longitude, override_capture_time und isBlurred=false gesendet.
+      - NEU: Optionales extra_exif-Feld vorbereitet (standardmäßig deaktiviert), damit Richtung/Höhe/Beschreibung später gezielt getestet werden können.
+      - DIAGNOSE: uploaded_files enthält jetzt sent_fields, damit die tatsächlich gesendeten API-Felder sichtbar sind.
+     0.1.96, 14.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Panoramax akzeptiert nur echte JPEG-Dateien; Upload wird jetzt serverseitig als reines JPEG neu geschrieben.
+      - BUGFIX: Nicht-JPEG-Dateien werden vor dem Panoramax-Upload übersprungen und sauber in der Diagnose gemeldet.
+      - NEU: JPEG-Diagnose mit MIME-Typ, Bildgröße und Hinweis bei Panoramax-Meldung „Nur im JPEG-Format“.
+     0.1.97, 15.5.2026 // UTC+2 Deutschland
+      - BEREINIGUNG: Dateikopf auf overpass-osm.de.cool aktualisiert; Upload-Logik aus v0.1.96 bleibt erhalten.
  */
 
 declare(strict_types=1);
@@ -66,6 +86,93 @@ function pg_clean_api_url(string $url): string {
     $url = rtrim(trim($url), '/');
     if ($url === '') $url = 'https://panoramax.basi.re/api';
     return $url;
+}
+
+function pg_api_origin(string $apiUrl): string {
+    $parts = parse_url($apiUrl);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) return '';
+    $origin = $parts['scheme'] . '://' . $parts['host'];
+    if (!empty($parts['port'])) $origin .= ':' . $parts['port'];
+    return $origin;
+}
+
+function pg_absolute_panoramax_url(string $apiUrl, string $href): string {
+    $href = trim($href);
+    if ($href === '') return '';
+    if (preg_match('~^https?://~i', $href)) return $href;
+
+    $origin = pg_api_origin($apiUrl);
+    if ($origin === '') return '';
+
+    if (str_starts_with($href, '/api/')) return $origin . $href;
+    if (str_starts_with($href, '/')) return $origin . $href;
+
+    return rtrim($apiUrl, '/') . '/' . ltrim($href, '/');
+}
+
+function pg_find_panoramax_link(array $object, string $rel, string $apiUrl): string {
+    $links = $object['links'] ?? null;
+    if (!is_array($links)) return '';
+
+    foreach ($links as $link) {
+        if (!is_array($link)) continue;
+        $linkRel = (string)($link['rel'] ?? '');
+        if ($linkRel !== $rel) continue;
+        $href = (string)($link['href'] ?? '');
+        $abs = pg_absolute_panoramax_url($apiUrl, $href);
+        if ($abs !== '') return $abs;
+    }
+
+    return '';
+}
+
+function pg_extract_upload_set_id(array $uploadSet, string $apiUrl): string {
+    $candidates = [
+        $uploadSet['id'] ?? null,
+        $uploadSet['uuid'] ?? null,
+        $uploadSet['upload_set_id'] ?? null,
+        $uploadSet['uploadSetId'] ?? null,
+    ];
+
+    foreach ($candidates as $candidate) {
+        $candidate = trim((string)$candidate);
+        if ($candidate !== '') return $candidate;
+    }
+
+    $links = $uploadSet['links'] ?? null;
+    if (is_array($links)) {
+        foreach ($links as $link) {
+            if (!is_array($link)) continue;
+            $href = pg_absolute_panoramax_url($apiUrl, (string)($link['href'] ?? ''));
+            if (preg_match('~/upload_sets/([^/?#]+)/?~', $href, $m)) {
+                return rawurldecode($m[1]);
+            }
+        }
+    }
+
+    return '';
+}
+
+function pg_build_upload_files_url(string $apiUrl, array $uploadSet, string $uploadSetId): string {
+    $link = pg_find_panoramax_link($uploadSet, 'add_files', $apiUrl);
+    if ($link !== '') return $link;
+
+    $link = pg_find_panoramax_link($uploadSet, 'add-file', $apiUrl);
+    if ($link !== '') return $link;
+
+    $link = pg_find_panoramax_link($uploadSet, 'files', $apiUrl);
+    if ($link !== '') return $link;
+
+    if ($uploadSetId === '') return '';
+    return $apiUrl . '/upload_sets/' . rawurlencode($uploadSetId) . '/files';
+}
+
+function pg_build_complete_url(string $apiUrl, array $uploadSet, string $uploadSetId): string {
+    $link = pg_find_panoramax_link($uploadSet, 'complete', $apiUrl);
+    if ($link !== '') return $link;
+
+    if ($uploadSetId === '') return '';
+    return $apiUrl . '/upload_sets/' . rawurlencode($uploadSetId) . '/complete';
 }
 
 function pg_basename_safe(string $filename): string {
@@ -179,12 +286,55 @@ function pg_semantics_from_keywords(string $keywords): array {
     return array_values($unique);
 }
 
+function pg_format_exiv2_float($value, int $precision = 6): string {
+    if (!is_numeric($value)) return '';
+    return rtrim(rtrim(number_format((float)$value, $precision, '.', ''), '0'), '.');
+}
+
+function pg_build_extra_exif(array $meta): array {
+    $extra = [];
+
+    $description = trim((string)($meta['description'] ?? ''));
+    if ($description !== '') {
+        $extra['override_Exif.Image.ImageDescription'] = $description;
+        $extra['override_Exif.Photo.UserComment'] = $description;
+
+        if (preg_match('/(?:©|@)\s*([^|\n\r]+)\s*$/u', $description, $m)) {
+            $author = trim($m[1]);
+            if ($author !== '') {
+                $extra['override_Exif.Image.Artist'] = $author;
+                $extra['override_Exif.Image.Copyright'] = '© ' . $author;
+            }
+        }
+    }
+
+    $direction = $meta['direction'] ?? ($meta['angle'] ?? null);
+    if (is_numeric($direction)) {
+        $deg = fmod((float)$direction, 360.0);
+        if ($deg < 0) $deg += 360.0;
+        $extra['override_Exif.GPSInfo.GPSImgDirectionRef'] = 'T';
+        $extra['override_Exif.GPSInfo.GPSImgDirection'] = pg_format_exiv2_float($deg, 2);
+    }
+
+    $altitude = $meta['altitude'] ?? null;
+    if (is_numeric($altitude)) {
+        $alt = (float)$altitude;
+        $extra['override_Exif.GPSInfo.GPSAltitudeRef'] = $alt < 0 ? '1' : '0';
+        $extra['override_Exif.GPSInfo.GPSAltitude'] = pg_format_exiv2_float(abs($alt), 2);
+    }
+
+    return $extra;
+}
+
 function pg_http_json(string $method, string $url, string $token, ?array $payload = null, int $timeout = 120): array {
     if (!function_exists('curl_init')) {
         return [
             'ok' => false,
             'status' => 0,
-            'error' => 'PHP-cURL ist nicht verfügbar. Direkter Panoramax-Upload benötigt cURL.'
+            'error' => 'PHP-cURL ist nicht verfügbar. Direkter Panoramax-Upload benötigt cURL.',
+            'url' => $url,
+            'headers' => [],
+            'location' => '',
         ];
     }
 
@@ -193,6 +343,7 @@ function pg_http_json(string $method, string $url, string $token, ?array $payloa
         'Accept: application/json',
         'Authorization: Bearer ' . $token,
     ];
+    $responseHeaders = [];
 
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -200,6 +351,14 @@ function pg_http_json(string $method, string $url, string $token, ?array $payloa
         CURLOPT_TIMEOUT => $timeout,
         CURLOPT_CONNECTTIMEOUT => 30,
         CURLOPT_HEADER => false,
+        CURLOPT_HEADERFUNCTION => function ($ch, string $headerLine) use (&$responseHeaders): int {
+            $len = strlen($headerLine);
+            $line = trim($headerLine);
+            if ($line === '' || !str_contains($line, ':')) return $len;
+            [$name, $value] = explode(':', $line, 2);
+            $responseHeaders[strtolower(trim($name))] = trim($value);
+            return $len;
+        },
     ]);
 
     if ($payload !== null) {
@@ -229,11 +388,13 @@ function pg_http_json(string $method, string $url, string $token, ?array $payloa
         'body' => is_string($body) ? $body : '',
         'error' => $errno ? $err : null,
         'url' => $url,
+        'headers' => $responseHeaders,
+        'location' => $responseHeaders['location'] ?? '',
     ];
 }
 
-function pg_complete_upload_set(string $apiUrl, string $uploadSetId, string $token, int $timeout = 120): array {
-    $url = $apiUrl . '/upload_sets/' . rawurlencode($uploadSetId) . '/complete';
+function pg_complete_upload_set(string $apiUrl, string $uploadSetId, string $token, int $timeout = 120, string $completeUrl = ''): array {
+    $url = $completeUrl !== '' ? $completeUrl : ($apiUrl . '/upload_sets/' . rawurlencode($uploadSetId) . '/complete');
 
     $attempts = [];
 
@@ -321,13 +482,92 @@ function pg_http_multipart(string $url, string $token, array $fields, int $timeo
     ];
 }
 
+
+function pg_detect_jpeg_info(string $file): array {
+    $info = [
+        'is_file' => is_file($file),
+        'size_bytes' => is_file($file) ? filesize($file) : 0,
+        'magic' => '',
+        'mime' => null,
+        'image_type' => null,
+        'width' => null,
+        'height' => null,
+        'is_jpeg' => false,
+    ];
+
+    if (!is_file($file)) return $info;
+
+    $fh = @fopen($file, 'rb');
+    if ($fh) {
+        $bytes = fread($fh, 12);
+        fclose($fh);
+        $info['magic'] = strtoupper(bin2hex($bytes ?: ''));
+    }
+
+    if (function_exists('finfo_open')) {
+        $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = @finfo_file($finfo, $file);
+            @finfo_close($finfo);
+            if (is_string($mime) && $mime !== '') $info['mime'] = $mime;
+        }
+    }
+
+    $imgSize = @getimagesize($file);
+    if (is_array($imgSize)) {
+        $info['width'] = $imgSize[0] ?? null;
+        $info['height'] = $imgSize[1] ?? null;
+        $info['image_type'] = $imgSize[2] ?? null;
+    }
+
+    $magicIsJpeg = str_starts_with($info['magic'], 'FFD8FF');
+    $mimeIsJpeg = in_array(strtolower((string)$info['mime']), ['image/jpeg', 'image/pjpeg'], true);
+    $typeIsJpeg = ((int)($info['image_type'] ?? 0) === IMAGETYPE_JPEG);
+
+    $info['is_jpeg'] = $magicIsJpeg && ($mimeIsJpeg || $typeIsJpeg || $info['mime'] === null);
+    return $info;
+}
+
+function pg_has_jpeg_only_error(array $upload): bool {
+    $haystack = '';
+    foreach (['body', 'error'] as $key) {
+        if (!empty($upload[$key])) $haystack .= ' ' . (string)$upload[$key];
+    }
+    if (!empty($upload['json'])) {
+        $haystack .= ' ' . json_encode($upload['json'], JSON_UNESCAPED_UNICODE);
+    }
+    $haystack = strtolower($haystack);
+    return str_contains($haystack, 'jpeg') || str_contains($haystack, 'jpg') || str_contains($haystack, 'image format') || str_contains($haystack, 'format');
+}
+
 function pg_prepare_jpeg_for_panoramax(string $srcFile, string $sessionDir, bool $sanitize, ?string $safeUploadName = null): array {
     $warning = null;
     $uploadFile = $srcFile;
     $uploadName = $safeUploadName ?: basename($srcFile);
+    $sourceInfo = pg_detect_jpeg_info($srcFile);
+
+    if (!$sourceInfo['is_jpeg']) {
+        return [
+            'file' => $uploadFile,
+            'name' => $uploadName,
+            'warning' => 'Datei ist kein gültiges JPEG und wird nicht an Panoramax gesendet.',
+            'sanitized' => false,
+            'source_info' => $sourceInfo,
+            'upload_info' => $sourceInfo,
+            'skip' => true,
+        ];
+    }
 
     if (!$sanitize) {
-        return ['file' => $uploadFile, 'name' => $uploadName, 'warning' => null, 'sanitized' => false];
+        return [
+            'file' => $uploadFile,
+            'name' => $uploadName,
+            'warning' => null,
+            'sanitized' => false,
+            'source_info' => $sourceInfo,
+            'upload_info' => $sourceInfo,
+            'skip' => false,
+        ];
     }
 
     if (!function_exists('imagecreatefromjpeg') || !function_exists('imagejpeg')) {
@@ -335,7 +575,10 @@ function pg_prepare_jpeg_for_panoramax(string $srcFile, string $sessionDir, bool
             'file' => $uploadFile,
             'name' => $uploadName,
             'warning' => 'GD/JPEG ist auf dem Server nicht verfügbar. Datei wird unverändert hochgeladen.',
-            'sanitized' => false
+            'sanitized' => false,
+            'source_info' => $sourceInfo,
+            'upload_info' => $sourceInfo,
+            'skip' => false,
         ];
     }
 
@@ -344,8 +587,11 @@ function pg_prepare_jpeg_for_panoramax(string $srcFile, string $sessionDir, bool
         return [
             'file' => $uploadFile,
             'name' => $uploadName,
-            'warning' => 'JPEG konnte mit GD nicht neu geschrieben werden. Datei wird unverändert hochgeladen.',
-            'sanitized' => false
+            'warning' => 'JPEG konnte mit GD nicht gelesen werden und wird nicht an Panoramax gesendet.',
+            'sanitized' => false,
+            'source_info' => $sourceInfo,
+            'upload_info' => $sourceInfo,
+            'skip' => true,
         ];
     }
 
@@ -355,19 +601,33 @@ function pg_prepare_jpeg_for_panoramax(string $srcFile, string $sessionDir, bool
     $base = pg_safe_ascii_stem(pathinfo($uploadName, PATHINFO_FILENAME));
     $tmpFile = $tmpDir . '/' . $base . '.jpg';
 
-    $ok = @imagejpeg($img, $tmpFile, 92);
+    // Reines JPEG neu schreiben: keine problematischen Container-/EXIF-Blöcke, kein PNG/WebP,
+    // dafür GPS/Zeit per Panoramax-API-Override.
+    $ok = @imagejpeg($img, $tmpFile, 95);
     imagedestroy($img);
 
-    if (!$ok || !is_file($tmpFile)) {
+    $uploadInfo = pg_detect_jpeg_info($tmpFile);
+    if (!$ok || !is_file($tmpFile) || !$uploadInfo['is_jpeg']) {
         return [
             'file' => $uploadFile,
             'name' => $uploadName,
-            'warning' => 'JPEG-Neuschreiben fehlgeschlagen. Datei wird unverändert hochgeladen.',
-            'sanitized' => false
+            'warning' => 'JPEG-Neuschreiben fehlgeschlagen. Datei wird nicht an Panoramax gesendet.',
+            'sanitized' => false,
+            'source_info' => $sourceInfo,
+            'upload_info' => $uploadInfo,
+            'skip' => true,
         ];
     }
 
-    return ['file' => $tmpFile, 'name' => $base . '.jpg', 'warning' => null, 'sanitized' => true];
+    return [
+        'file' => $tmpFile,
+        'name' => $base . '.jpg',
+        'warning' => null,
+        'sanitized' => true,
+        'source_info' => $sourceInfo,
+        'upload_info' => $uploadInfo,
+        'skip' => false,
+    ];
 }
 
 function pg_find_file_in_session(string $sessionDir, string $filename): ?string {
@@ -397,9 +657,11 @@ $config = [
     'timeout' => 600,
     'sanitize_before_upload' => false,
     'complete_after_upload' => true,
-    // exif_only = stabiler Standard: Panoramax liest GPS/Datum/Richtung aus der JPEG-Datei.
-    // api_overrides = alter Modus mit override_latitude/override_longitude/override_capture_time im Multipart-Request.
-    'upload_metadata_mode' => 'exif_only',
+    // api_overrides = aktueller Standard: GPS/Datum werden laut OpenAPI beim Multipart-Upload explizit übergeben.
+    // exif_only = Fallback/Testmodus: Panoramax liest GPS/Datum/Richtung nur aus der JPEG-Datei.
+    'upload_metadata_mode' => 'api_overrides',
+    // Optionaler Testmodus: extra_exif als JSON-Multipart-Feld mitsenden. Standard false, weil nicht jede Instanz das gleich verarbeitet.
+    'upload_extra_exif' => false,
 ];
 
 if (is_file($configFile)) {
@@ -451,6 +713,7 @@ if (!is_dir($sessionDir)) {
 
 $inputImages = is_array($input['images'] ?? null) ? $input['images'] : [];
 $images = [];
+$preUploadSkipped = [];
 
 if ($inputImages) {
     foreach ($inputImages as $img) {
@@ -483,8 +746,9 @@ $apiUrl = pg_clean_api_url((string)($input['api_url'] ?? $config['api_url'] ?? '
 $timeout = max(60, (int)($config['timeout'] ?? 600));
 $sanitize = filter_var($config['sanitize_before_upload'] ?? false, FILTER_VALIDATE_BOOLEAN);
 $completeAfterUpload = filter_var($config['complete_after_upload'] ?? true, FILTER_VALIDATE_BOOLEAN);
-$uploadMetadataMode = strtolower(trim((string)($config['upload_metadata_mode'] ?? 'exif_only')));
-if (!in_array($uploadMetadataMode, ['exif_only', 'api_overrides'], true)) $uploadMetadataMode = 'exif_only';
+$uploadMetadataMode = strtolower(trim((string)($config['upload_metadata_mode'] ?? 'api_overrides')));
+if (!in_array($uploadMetadataMode, ['exif_only', 'api_overrides'], true)) $uploadMetadataMode = 'api_overrides';
+$uploadExtraExif = filter_var($input['upload_extra_exif'] ?? ($config['upload_extra_exif'] ?? false), FILTER_VALIDATE_BOOLEAN);
 
 if (!function_exists('curl_init')) {
     pg_json([
@@ -509,12 +773,15 @@ foreach ($images as $img) {
 $uploadSetPayload = [
     'title' => trim((string)($input['title'] ?? '')) ?: ('Foto Geo-Tool Upload ' . date('Y-m-d H:i:s')),
     'estimated_nb_files' => count($images),
+    'sort_method' => 'filename-asc',
     'no_split' => true,
     'no_deduplication' => true,
     'metadata' => [
         'source' => 'Foto Geo-Tool',
         'session_id' => $safeSessionId,
         'upload_mode' => 'direct_api',
+        'upload_metadata_mode' => $uploadMetadataMode,
+        'upload_extra_exif' => $uploadExtraExif ? 'true' : 'false',
     ],
 ];
 
@@ -537,11 +804,36 @@ if (!$create['ok']) {
 }
 
 $uploadSet = $create['json'] ?? [];
-$uploadSetId = (string)($uploadSet['id'] ?? '');
-if ($uploadSetId === '') {
+$uploadSet = is_array($uploadSet) ? $uploadSet : [];
+$uploadSetId = pg_extract_upload_set_id($uploadSet, $apiUrl);
+
+// Panoramax dokumentiert die Upload-Set-ID zusätzlich im Location-Header.
+// Diesen Header nutzen wir als robusten Fallback, falls die JSON-Antwort anders aufgebaut ist.
+if ($uploadSetId === '' && !empty($create['location']) && preg_match('~/upload_sets/([^/?#]+)~', (string)$create['location'], $m)) {
+    $uploadSetId = rawurldecode($m[1]);
+}
+
+$uploadFilesUrl = pg_build_upload_files_url($apiUrl, $uploadSet, $uploadSetId);
+$completeUrl = pg_build_complete_url($apiUrl, $uploadSet, $uploadSetId);
+
+if ($uploadSetId === '' || $uploadFilesUrl === '') {
     pg_json([
         'success' => false,
-        'message' => 'Panoramax Upload-Set wurde erstellt, aber die Antwort enthält keine id.',
+        'message' => 'Panoramax Upload-Set wurde erstellt, aber die Upload-Set-ID oder der add_files-Link fehlt. Datei-Upload wird gestoppt, damit keine URL /upload_sets//files entsteht.',
+        'api_url' => $apiUrl,
+        'upload_set_id' => $uploadSetId,
+        'upload_files_url' => $uploadFilesUrl,
+        'complete_url' => $completeUrl,
+        'create_response' => $create,
+    ]);
+}
+
+if (str_contains($uploadFilesUrl, '/upload_sets//')) {
+    pg_json([
+        'success' => false,
+        'message' => 'Interner Schutz: Upload-URL enthält eine leere Upload-Set-ID. Der Datei-Upload wurde gestoppt.',
+        'upload_set_id' => $uploadSetId,
+        'upload_files_url' => $uploadFilesUrl,
         'create_response' => $create,
     ]);
 }
@@ -550,6 +842,7 @@ if ($uploadSetId === '') {
 // Dateien hochladen
 // -----------------------------------------------------
 $uploaded = [];
+$uploadErrors = [];
 $warnings = [];
 
 foreach ($images as $idx => $img) {
@@ -557,6 +850,25 @@ foreach ($images as $idx => $img) {
     $safeUploadName = pg_safe_panoramax_filename($meta, $img['file'], $idx);
     $prepared = pg_prepare_jpeg_for_panoramax($img['file'], $sessionDir, $sanitize, $safeUploadName);
     if ($prepared['warning']) $warnings[] = $prepared['warning'] . ' Datei: ' . basename($img['file']);
+
+    if (!empty($prepared['skip'])) {
+        $uploadErrors[] = [
+            'file' => basename($img['file']),
+            'upload_name' => $prepared['name'],
+            'http_status' => 0,
+            'response_json' => null,
+            'response_body' => '',
+            'curl_error' => $prepared['warning'] ?: 'Datei vor Upload übersprungen.',
+            'sent_fields' => [
+                'file' => $prepared['name'],
+                'upload_metadata_mode' => $uploadMetadataMode,
+                'skipped_before_upload' => true,
+                'source_info' => $prepared['source_info'] ?? null,
+                'upload_info' => $prepared['upload_info'] ?? null,
+            ],
+        ];
+        continue;
+    }
 
     $lat = is_numeric($meta['lat'] ?? null) ? (float)$meta['lat'] : null;
     $lng = is_numeric($meta['lng'] ?? null) ? (float)$meta['lng'] : null;
@@ -566,17 +878,28 @@ foreach ($images as $idx => $img) {
         'file' => new CURLFile($prepared['file'], 'image/jpeg', $prepared['name']),
     ];
 
-    // Standard: keine Zusatzfelder senden.
-    // Panoramax erwartet laut Dokumentation mindestens und ausreichend:
-    // POST /api/upload_sets/<id>/files  -F file=@bild.jpg
-    //
-    // Die Metadaten (GPS, Datum, Blickrichtung) stehen bereits im von der App
-    // gespeicherten JPEG-EXIF. Zusatzfelder können bei einzelnen Instanzen zu
-    // Serverfehlern führen; deshalb bleiben sie im Standardmodus aus.
+    $sentFields = [
+        'file' => $prepared['name'],
+        'upload_metadata_mode' => $uploadMetadataMode,
+        'isBlurred' => null,
+        'override_latitude' => null,
+        'override_longitude' => null,
+        'override_capture_time' => null,
+        'extra_exif_keys' => [],
+        'sanitized' => $prepared['sanitized'],
+        'source_jpeg_info' => $prepared['source_info'] ?? null,
+        'upload_jpeg_info' => $prepared['upload_info'] ?? null,
+    ];
+
+    // Panoramax OpenAPI GeoVisioAddToUploadSet erlaubt diese Multipart-Felder:
+    // override_capture_time, override_longitude, override_latitude, extra_exif, isBlurred und file.
+    // Deshalb senden wir GPS/Zeit im Standardmodus explizit mit, zusätzlich zum JPEG selbst.
     if ($uploadMetadataMode === 'api_overrides') {
         if ($lat !== null && $lng !== null) {
             $fields['override_latitude'] = (string)$lat;
             $fields['override_longitude'] = (string)$lng;
+            $sentFields['override_latitude'] = $fields['override_latitude'];
+            $sentFields['override_longitude'] = $fields['override_longitude'];
         }
 
         if ($captureTime !== null) {
@@ -584,45 +907,41 @@ foreach ($images as $idx => $img) {
         } else {
             $fields['override_capture_time'] = date('Y-m-d\TH:i:s', filemtime($img['file']) ?: time());
         }
+        $sentFields['override_capture_time'] = $fields['override_capture_time'];
+
+        // Laut OpenAPI vorhanden. Als String "false" gesendet, damit Form-Parser es als boolean false lesen kann.
+        $fields['isBlurred'] = 'false';
+        $sentFields['isBlurred'] = 'false';
+
+        if ($uploadExtraExif) {
+            $extraExif = pg_build_extra_exif($meta);
+            if ($extraExif) {
+                // Manche Panoramax-Instanzen erwarten für multipart/object ein JSON-codiertes Feld.
+                // Deshalb bleibt dieser Modus abschaltbar und ist standardmäßig deaktiviert.
+                $fields['extra_exif'] = json_encode($extraExif, JSON_UNESCAPED_UNICODE);
+                $sentFields['extra_exif_keys'] = array_keys($extraExif);
+            }
+        }
     }
 
-    $upload = pg_http_multipart($apiUrl . '/upload_sets/' . rawurlencode($uploadSetId) . '/files', $token, $fields, $timeout);
+    $upload = pg_http_multipart($uploadFilesUrl, $token, $fields, $timeout);
 
     if (!$upload['ok']) {
-        $filesDiag = pg_http_json('GET', $apiUrl . '/upload_sets/' . rawurlencode($uploadSetId) . '/files', $token, null, 120);
-
-        pg_json([
-            'success' => false,
-            'message' => 'Panoramax hat eine Datei abgelehnt oder mit einem Serverfehler beantwortet.',
-            'upload_set_id' => $uploadSetId,
-            'failed_file' => basename($img['file']),
-            'failed_upload_name' => $prepared['name'],
-            'uploaded_before_failure' => count($uploaded),
+        // Laut Panoramax-Doku können ungültige Bilder abgelehnt und trotzdem als empfangene Datei gezählt werden.
+        // Deshalb brechen wir nicht mehr sofort ab, sondern sammeln alle Fehler und schließen das Upload-Set später ab.
+        $uploadErrors[] = [
+            'file' => basename($img['file']),
+            'upload_name' => $prepared['name'],
             'http_status' => $upload['status'],
             'response_json' => $upload['json'],
             'response_body' => $upload['body'],
             'curl_error' => $upload['error'],
-            'files_diagnostic' => [
-                'ok' => $filesDiag['ok'],
-                'status' => $filesDiag['status'],
-                'json' => $filesDiag['json'],
-                'body' => $filesDiag['body'],
-                'error' => $filesDiag['error'],
-                'url' => $filesDiag['url'],
-            ],
-            'sent_overrides' => [
-                'upload_metadata_mode' => $uploadMetadataMode,
-                'override_latitude' => $fields['override_latitude'] ?? null,
-                'override_longitude' => $fields['override_longitude'] ?? null,
-                'override_capture_time' => $fields['override_capture_time'] ?? null,
-                'sanitized' => $prepared['sanitized'],
-            ],
-            'debug_urls' => [
-                'upload_set' => $apiUrl . '/upload_sets/' . rawurlencode($uploadSetId),
-                'files' => $apiUrl . '/upload_sets/' . rawurlencode($uploadSetId) . '/files',
-            ],
-            'warnings' => array_values(array_unique($warnings)),
-        ]);
+            'sent_fields' => $sentFields,
+            'jpeg_only_hint' => pg_has_jpeg_only_error($upload)
+                ? 'Panoramax meldet vermutlich ein JPEG-Formatproblem. In v0.1.96 wird deshalb sanitize_before_upload=true empfohlen/gesetzt.'
+                : null,
+        ];
+        continue;
     }
 
     $uploaded[] = [
@@ -630,6 +949,8 @@ foreach ($images as $idx => $img) {
         'upload_name' => $prepared['name'],
         'response' => $upload['json'],
         'sanitized' => $prepared['sanitized'],
+        'http_status' => $upload['status'],
+        'sent_fields' => $sentFields,
     ];
 }
 
@@ -638,20 +959,57 @@ foreach ($images as $idx => $img) {
 // -----------------------------------------------------
 $complete = null;
 if ($completeAfterUpload) {
-    $complete = pg_complete_upload_set($apiUrl, $uploadSetId, $token, $timeout);
+    $complete = pg_complete_upload_set($apiUrl, $uploadSetId, $token, $timeout, $completeUrl);
 }
 
-$filesDiag = pg_http_json('GET', $apiUrl . '/upload_sets/' . rawurlencode($uploadSetId) . '/files', $token, null, 120);
+$filesDiag = pg_http_json('GET', $uploadFilesUrl, $token, null, 120);
+$finalSetStatus = pg_http_json('GET', $apiUrl . '/upload_sets/' . rawurlencode($uploadSetId), $token, null, 120);
+
+$filesJson = is_array($filesDiag['json'] ?? null) ? $filesDiag['json'] : [];
+$filesList = [];
+if (isset($filesJson['features']) && is_array($filesJson['features'])) {
+    $filesList = $filesJson['features'];
+} elseif (isset($filesJson['items']) && is_array($filesJson['items'])) {
+    $filesList = $filesJson['items'];
+} elseif (array_is_list($filesJson)) {
+    $filesList = $filesJson;
+}
+
+$rejectedCount = 0;
+foreach ($filesList as $fileInfo) {
+    if (!is_array($fileInfo)) continue;
+    if (!empty($fileInfo['rejected']) || !empty($fileInfo['properties']['rejected'])) $rejectedCount++;
+}
+
+$allFailed = count($uploaded) === 0 && count($uploadErrors) > 0;
+$message = $allFailed
+    ? 'Panoramax hat keine Datei per HTTP erfolgreich angenommen. Upload-Set wurde trotzdem abgeschlossen/diagnostiziert.'
+    : count($uploaded) . ' Bild(er) wurden per direkter Panoramax-API angenommen. Upload-Set wurde abgeschlossen bzw. der Abschluss wurde versucht.';
+if (count($uploadErrors) > 0) {
+    $message .= ' ' . count($uploadErrors) . ' Datei(en) wurden beim Uploadversuch mit Fehler beantwortet.';
+}
+if ($rejectedCount > 0) {
+    $message .= ' Panoramax meldet ' . $rejectedCount . ' abgelehnte Datei(en) im Upload-Set.';
+}
 
 pg_json([
-    'success' => true,
-    'message' => count($uploaded) . ' Bild(er) wurden per direkter Panoramax-API angenommen. Upload-Set wurde abgeschlossen bzw. der Abschluss wurde versucht.',
+    'success' => !$allFailed,
+    'version' => '0.1.96',
+    'message' => $message,
     'upload_set_id' => $uploadSetId,
+    'upload_files_url' => $uploadFilesUrl,
+    'complete_url' => $completeUrl,
     'api_url' => $apiUrl,
     'images_count' => count($images),
     'uploaded_count' => count($uploaded),
+    'failed_count' => count($uploadErrors),
+    'rejected_count' => $rejectedCount,
+    'uploaded_files' => $uploaded,
+    'upload_errors' => $uploadErrors,
     'upload_metadata_mode' => $uploadMetadataMode,
+    'upload_extra_exif' => $uploadExtraExif,
     'sanitize_before_upload' => $sanitize,
+    'jpeg_upload_policy' => 'Nur echte JPEG-Dateien werden an Panoramax gesendet; bei sanitize_before_upload=true werden sie vorher als reine JPEG-Dateien neu geschrieben.',
     'upload_set_payload' => $uploadSetPayload,
     'complete_status' => $complete ? [
         'ok' => $complete['ok'],
@@ -662,6 +1020,14 @@ pg_json([
         'used_variant' => $complete['used_variant'] ?? null,
         'attempts' => $complete['attempts'] ?? [],
     ] : null,
+    'final_set_status' => [
+        'ok' => $finalSetStatus['ok'],
+        'status' => $finalSetStatus['status'],
+        'json' => $finalSetStatus['json'],
+        'body' => $finalSetStatus['body'],
+        'error' => $finalSetStatus['error'],
+        'url' => $finalSetStatus['url'],
+    ],
     'files_diagnostic' => [
         'ok' => $filesDiag['ok'],
         'status' => $filesDiag['status'],

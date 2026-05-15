@@ -2,7 +2,7 @@ Creative Commons Attribution 4.0 International (CC BY 4.0)
 
 Projekt: Foto Geo-Tool
 Autor: Lutz Müller (gabischatz)
-Webseite: https://gabischatz.de.cool/FotoGeoTool/index.html
+Webseite: https://overpass-osm.de.cool/FotoGeoTool/index.html
 
 Dieses Projekt steht, soweit nicht anders angegeben, unter der Lizenz
 Creative Commons Attribution 4.0 International (CC BY 4.0).

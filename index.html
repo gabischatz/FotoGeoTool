@@ -2,7 +2,7 @@
 
 <!--
  Projekt: Foto Geo-Tool
- Datei: https://gabischatz.de.cool/FotoGeoTool/index.html
+ Datei: https://overpass-osm.de.cool/FotoGeoTool/index.html
  Autor: Lutz Müller
  Programmiersprache: html
 
@@ -249,6 +249,18 @@
      0.1.91, 11.5.2026 // UTC+2 Deutschland
       - BUGFIX: Ortssuche versteht jetzt kombinierte Eingaben wie „99947 W“ und filtert innerhalb der PLZ nach Ortsnamen.
       - NEU: Fehlende Ortskoordinaten werden ersatzweise über eine andere Koordinate derselben PLZ abgefangen.
+     0.1.92, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Panoramax-Upload nutzt jetzt die add_files-/complete-Links aus der Upload-Set-Antwort statt eine URL mit leerer ID zu riskieren.
+     0.1.93, 11.5.2026 // UTC+2 Deutschland
+      - BUGFIX: Panoramax-Upload bricht bei einer abgelehnten Datei nicht mehr sofort ab; Abschluss/Diagnose laufen weiter.
+      - DIAGNOSE: Upload-Set-ID kann zusätzlich aus dem Location-Header gelesen werden.
+     0.1.94, 14.5.2026 // UTC+2 Deutschland
+      - NEU: FotoGeoTool-Link aus WhatsApp-Text kann per ?q=lat,lng,startwinkel,drehrichtung direkt Geoposition und Blickrichtung voreinstellen.
+     0.1.96, 14.5.2026 // UTC+2 Deutschland
+      - Version zu Panoramax-JPEG-Härtung synchronisiert.
+     0.1.97, 15.5.2026 // UTC+2 Deutschland
+      - BEREINIGUNG: Server-Stand auf overpass-osm.de.cool umgestellt; alte gabischatz-Links in Meta/OG/Canonical ersetzt.
+      - BEREINIGUNG: Paket ist wieder als sauberer Serverstand gedacht.
 -->
 <html lang="de">
 <head>
@@ -262,7 +274,7 @@
   <meta name="license" content="CC BY 4.0" />
   <link rel="license" href="https://creativecommons.org/licenses/by/4.0/deed.de" />
   <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://gabischatz.de.cool/FotoGeoTool/index.html" />
+  <link rel="canonical" href="https://overpass-osm.de.cool/FotoGeoTool/index.html" />
 
   
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
@@ -280,9 +292,9 @@
   <meta property="og:title" content="Foto Geo-Tool" />
   <meta property="og:description" content="Fotos laden, GPS-Koordinaten aus EXIF lesen oder per Karte setzen, Aufnahmedatum, Beschreibung und Panoramax-Tags ergänzen und Bilder mit Geodaten speichern." />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://gabischatz.de.cool/FotoGeoTool/index.html" />
-  <meta property="og:image" content="https://gabischatz.de.cool/FotoGeoTool/preview.png" />
-  <meta property="og:image:secure_url" content="https://gabischatz.de.cool/FotoGeoTool/preview.png" />
+  <meta property="og:url" content="https://overpass-osm.de.cool/FotoGeoTool/index.html" />
+  <meta property="og:image" content="https://overpass-osm.de.cool/FotoGeoTool/preview.png" />
+  <meta property="og:image:secure_url" content="https://overpass-osm.de.cool/FotoGeoTool/preview.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:alt" content="Vorschau des Foto Geo-Tools mit Bildvorschau, Kartenansicht, EXIF-Metadaten und Panoramax-Vorbereitung" />
   <meta property="og:image:width" content="1200" />
@@ -297,7 +309,7 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Foto Geo-Tool" />
   <meta name="twitter:description" content="Fotos laden, GPS/EXIF prüfen, Standort per Karte setzen, Alternativtext und Panoramax-Tags ergänzen und Bilder mit Geodaten speichern." />
-  <meta name="twitter:image" content="https://gabischatz.de.cool/FotoGeoTool/preview.png" />
+  <meta name="twitter:image" content="https://overpass-osm.de.cool/FotoGeoTool/preview.png" />
   <meta name="twitter:image:alt" content="Vorschau des Foto Geo-Tools mit Bildvorschau, Kartenansicht, EXIF-Metadaten und Panoramax-Vorbereitung" />
 
   <title>Foto Geo-Tool — Fotos geotaggen, EXIF bearbeiten und Panoramax vorbereiten</title>
@@ -320,7 +332,7 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=0.1.95" />
 </head>
 
 <body>
@@ -332,7 +344,7 @@
         <div class="brand-block">
           <span>📸</span>
           <div class="brand-text-block">
-            <a class="brand-title-link" href="https://gabischatz.de.cool/FotoGeoTool/index.html" title="Foto Geo-Tool neu laden">
+            <a class="brand-title-link" href="https://overpass-osm.de.cool/FotoGeoTool/index.html" title="Foto Geo-Tool neu laden">
               <h1>Foto Geo-Tool</h1>
             </a>
             <p>EXIF auslesen · GPS auf Karte anzeigen · Standort setzen · Bild speichern</p>
@@ -565,7 +577,7 @@
     </section>
 
   </div>
-  <script src="script.js" defer></script>
+  <script src="script.js?v=0.1.95" defer></script>
 
   <dialog id="descriptionDialog" class="description-dialog">
     <form method="dialog" class="description-dialog-box">
